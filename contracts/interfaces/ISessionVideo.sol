@@ -17,7 +17,26 @@ interface ISessionVideo {
         string twitter;
         string telegram;
         string discord;
-        string youtube;
+    }
+
+    struct Video {
+        address creator;
+        string metadataUri;
+        string caption;
+        uint256 totalMints;
+        uint256 mintLimit;
+        uint256 price;
+        uint256 likes;
+    }
+
+    struct Creator {
+        string name;
+        string profileImageUri;
+        string bio;
+        uint256 totalVideos;
+        uint256 totalFollowers;
+        uint256 totalTipsReceived;
+        SocialMedia socialMedia;
     }
 
     /**
@@ -44,7 +63,7 @@ interface ISessionVideo {
     event CreatorProfileUpdated(address indexed creator, string name, string profileImageUri, string bio);
     event CreatorSocialMediaUpdated(address indexed creator, string twitter, string telegram, string discord, string youtube);
     event CreatorFollowed(address indexed follower, address indexed creator);
-    event CreatorUnfollowed(address indexed unfollower, address indexed creator);    
+    event CreatorUnfollowed(address indexed unfollower, address indexed creator);
 
     /**
      * Functions
@@ -68,50 +87,26 @@ interface ISessionVideo {
     function tipCreator( uint256 _videoId ) external payable;
 
     // view data
-    function getVideo(uint256 _videoId) external view returns (
-        address creator,
-        string memory metadataUri,
-        string memory caption,
-        uint256 totalMints,
-        uint256 mintLimit,
-        uint256 price,
-        uint256 likes
-    );
-    function getVideoComments(uint256 _videoId) external view returns (
-        address[] memory commenters,
-        string[] memory commentTexts,
-        uint256[] memory timestamps
-    );
+    function getVideo(uint256 _videoId) external view returns (Video memory);
+    function getVideoComments(uint256 _videoId) external view returns (Comment[] memory);
     function hasLiked(uint256 _videoId, address _user) external view returns (bool);
 
     // creator functions
     function updateProfile( string memory _name, string memory _profileImageUri, string memory _bio ) external;
-    function updateSocialMedia( string memory _twitter, string memory _telegram, string memory _discord, string memory _youtube ) external;
-    function getCreatorProfile( address _creator ) external view returns (
-        string memory name,
-        string memory profileImageUri,
-        string memory bio,
-        uint256 totalVideos,
-        uint256 totalFollowers,
-        uint256 totalTipsReceived,
-        SocialMedia memory socialMedia
-    );
+    function updateSocialMedia( string memory _twitter, string memory _telegram, string memory _discord ) external;
+    function getCreatorProfile( address _creator ) external view returns (Creator memory);
 
     // following and unfollowing
     function followCreator( address _creator ) external;
     function unfollowCreator( address _creator ) external;
     function isFollowing( address _creator, address _follower ) external view returns (bool);
     function getTotalFollowers( address _creator ) external view returns (uint256);
-    function getTotalFollowing( address _creator ) external view returns (uint256);
 
     // contract admin functions
     function setProjectWallet( address _projectWallet ) external;
-    function setProjectFee( uint256 _projectFee ) external;
+    function setFee(uint256 _projectSharedPercentage, uint256 _creatorSharedPercentage, uint256 _minterSharedPercentage) external;
     function withdraw() external;
 
     // admin view functions
-    function getProjectWallet() external view returns (address);
-    function getProjectFee() external view returns (uint256);
     function getBalance() external view returns (uint256);
-    function getVideoCount() external view returns (uint256);
 }
