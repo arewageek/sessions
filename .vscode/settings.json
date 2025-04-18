@@ -1,0 +1,6 @@
+{
+  "wake.compiler.solc.remappings": [
+    "eth-gas-reporter/=node_modules/eth-gas-reporter/",
+    "hardhat/=node_modules/hardhat/"
+  ]
+}

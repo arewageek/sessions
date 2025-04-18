@@ -7,7 +7,7 @@ interface ISessionVideo {
      * Structs
     */
 
-    struct Comments {
+    struct Comment {
         address commenter;
         string text;
         uint256 timestamp;
@@ -38,7 +38,6 @@ interface ISessionVideo {
 
     // engagement
     event VideoLiked(uint256 indexed videoId, address indexed user);
-    event VideoUnliked(uint256 indexed videoId, address indexed user);
     event CommentAdded(uint256 indexed videoId, address indexed user, string commentText);
 
     // creator profile
