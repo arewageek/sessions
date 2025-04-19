@@ -46,10 +46,11 @@ interface ISessionVideo {
 
     // engagement
     event VideoLiked(uint256 indexed videoId, address indexed user);
+    event VideoUnliked(uint256 indexed videoId, address indexed user);
     event CommentAdded(uint256 indexed videoId, address indexed user, string commentText);
 
     // creator profile
-    event CreatorProfileUpdated(address indexed creator, string _metadataUri);
+    event CreatorProfileUpdated(address indexed creator, string metadataUri);
     event CreatorFollowed(address indexed follower, address indexed creator);
     event CreatorUnfollowed(address indexed unfollower, address indexed creator);
 
@@ -67,7 +68,7 @@ interface ISessionVideo {
 
     // engagement
     function likeVideo(uint256 _videoId) external;
-    function removeLikeFromVideo(uint256 _videoId) external;
+    function unlikeVideo(uint256 _videoId) external;
     function commentOnVideo( uint256 _videoId, string memory _commentText ) external;
 
     // tipping of creators
@@ -75,8 +76,10 @@ interface ISessionVideo {
 
     // view data
     function getVideo(uint256 _videoId) external view returns (Video memory);
-    function getVideoComments(uint256 _videoId) external view returns (Comment[] memory);
     function hasLiked(uint256 _videoId, address _user) external view returns (bool);
+    function getVideoComments(uint256 _videoId) external view returns (Comment[] memory);
+    function getTotalComments(uint256 _videoId) external view returns (uint256);
+    function getVideoCommentsPaginated(uint256 _videoId, uint256 offset, uint256 limit) external view returns (Comment[] memory);
 
     // creator functions
     function updateProfile(string memory _metadataUri) external;
