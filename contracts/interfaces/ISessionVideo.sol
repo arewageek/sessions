@@ -13,16 +13,9 @@ interface ISessionVideo {
         uint256 timestamp;
     }
 
-    struct SocialMedia {
-        string twitter;
-        string telegram;
-        string discord;
-    }
-
     struct Video {
         address creator;
         string metadataUri;
-        string caption;
         uint256 totalMints;
         uint256 mintLimit;
         uint256 price;
@@ -30,13 +23,10 @@ interface ISessionVideo {
     }
 
     struct Creator {
-        string name;
-        string profileImageUri;
-        string bio;
+        string metadataUri;
         uint256 totalVideos;
         uint256 totalFollowers;
         uint256 totalTipsReceived;
-        SocialMedia socialMedia;
     }
 
     /**
@@ -44,8 +34,7 @@ interface ISessionVideo {
      */
 
     // video upload and metadata
-    event VideoUploaded(uint256 indexed videoId, address indexed creator, string metadataUri, string caption, uint256 mintLimit, uint256 price);
-    event CaptionUpdated(uint256 indexed videoId, string newCaption);
+    event VideoUploaded(uint256 indexed videoId, address indexed creator, string metadataUri, uint256 mintLimit, uint256 price);
     event MintLimitUpdated(uint256 indexed videoId, uint256 newMintLimit);
     event MintPriceUpdated(uint256 indexed videoId, uint256 newPrice);
 
@@ -60,8 +49,7 @@ interface ISessionVideo {
     event CommentAdded(uint256 indexed videoId, address indexed user, string commentText);
 
     // creator profile
-    event CreatorProfileUpdated(address indexed creator, string name, string profileImageUri, string bio);
-    event CreatorSocialMediaUpdated(address indexed creator, string twitter, string telegram, string discord, string youtube);
+    event CreatorProfileUpdated(address indexed creator, string _metadataUri);
     event CreatorFollowed(address indexed follower, address indexed creator);
     event CreatorUnfollowed(address indexed unfollower, address indexed creator);
 
@@ -70,8 +58,7 @@ interface ISessionVideo {
      */
 
     // video upload and metadata
-    function uploadVideo( string memory _metadataUri, string memory _caption, uint256 _mintLimit, uint256 _price ) external;
-    function updateCaption( uint256 _videoId, string calldata _newCaption ) external;
+    function uploadVideo( string memory _metadataUri, uint256 _mintLimit, uint256 _price ) external;
     function updateMintLimit( uint256 _videoId, uint256 _newMintLimit ) external;
     function updatePrice( uint256 _videoId, uint256 _newPrice ) external;
 
@@ -92,19 +79,18 @@ interface ISessionVideo {
     function hasLiked(uint256 _videoId, address _user) external view returns (bool);
 
     // creator functions
-    function updateProfile( string memory _name, string memory _profileImageUri, string memory _bio ) external;
-    function updateSocialMedia( string memory _twitter, string memory _telegram, string memory _discord ) external;
+    function updateProfile(string memory _metadataUri) external;
     function getCreatorProfile( address _creator ) external view returns (Creator memory);
 
     // following and unfollowing
     function followCreator( address _creator ) external;
     function unfollowCreator( address _creator ) external;
-    function isFollowing( address _creator, address _follower ) external view returns (bool);
+    function isFollowing( address _follower, address _creator ) external view returns (bool);
     function getTotalFollowers( address _creator ) external view returns (uint256);
 
     // contract admin functions
     function setProjectWallet( address _projectWallet ) external;
-    function setFee(uint256 _projectSharedPercentage, uint256 _creatorSharedPercentage, uint256 _minterSharedPercentage) external;
+    function setRevenueSplit(uint256 _projectSharedPercentage, uint256 _creatorSharedPercentage, uint256 _minterSharedPercentage) external;
     function withdraw() external;
 
     // admin view functions

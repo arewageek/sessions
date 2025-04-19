@@ -14,7 +14,7 @@ contract SessionVideo is ISessionVideo {
     // project share percentage
     uint256 public videoCount;
 
-    // mint share percentages
+    // mint share perwhere is shecentages
     uint256 public creatorSharePercentage = 60;
     uint256 public projectSharePercentage = 30;
     uint256 public minterSharePercentage = 10;
@@ -54,7 +54,6 @@ contract SessionVideo is ISessionVideo {
 
     function uploadVideo(
         string memory _metadataUri,
-        string memory _caption,
         uint256 _mintLimit,
         uint256 _price
     ) external override {
@@ -63,19 +62,13 @@ contract SessionVideo is ISessionVideo {
         videos[videoCount] = Video({
             creator: msg.sender,
             metadataUri: _metadataUri,
-            caption: _caption,
             totalMints: 0,
             mintLimit: _mintLimit,
             price: _price,
             likes: 0
         });
 
-        emit VideoUploaded(videoCount, msg.sender, _metadataUri, _caption, _mintLimit, _price);
-    }
-
-    function updateCaption(uint256 _videoId, string calldata _newCaption ) external onlyCreator(_videoId) override {
-        videos[_videoId].caption = _newCaption;
-        emit CaptionUpdated(_videoId, _newCaption);
+        emit VideoUploaded(videoCount, msg.sender, _metadataUri, _mintLimit, _price);
     }
 
     function updateMintLimit( uint256 _videoId, uint256 _newMintLimit ) external override {
@@ -136,6 +129,8 @@ contract SessionVideo is ISessionVideo {
         creators[creator].totalTipsReceived += msg.value;
 
         payable(creator).transfer(msg.value);
+
+        emit CreatorTipped(msg.sender, creator, msg.value, _videoId);
     }
 
     // view data
@@ -152,39 +147,39 @@ contract SessionVideo is ISessionVideo {
 
 
     // creator functions
-    function updateProfile( string memory _name, string memory _profileImageUri, string memory _bio ) external override {
-        // creators[msg.sender] = Creator({
-        //     name: _name,
-        //     profileImageUri: _profileImageUri,
-        //     bio: _bio
-        // });
-        
+    function updateProfile(string memory _metadataUri) external override {
+        if(creators[msg.sender].metadaUri == ""){
+            creators[msg.sender] = Creator({
+                metadataUri: _metadataUri,
+                totalVideos: 0,
+                totalFollowers: 0,
+                totalTipReceived: 0
+            });
+        }
+        else{
+            creators[msg.sender].metadaUri = _metadataUri;
+        }
+        emit CreatorProfileUpdated(msg.sender, _metadataUri);
     }
-    function updateSocialMedia(string memory _twitter, string memory _telegram, string memory _discord) external override{
-        creators[msg.sender].socialMedia = SocialMedia({
-            twitter: _twitter,
-            telegram: _telegram,
-            discord: _discord
-        });
-    }
+
     function getCreatorProfile( address _creator ) external view override returns (Creator memory) {
         return creators[_creator];
     }
 
     // following and unfollowing
     function followCreator( address _creator ) external override {
-        following[_creator][msg.sender] = true;
+        following[msg.sender][_creator] = true;
         creators[_creator].totalFollowers ++;
 
         emit CreatorFollowed(msg.sender, _creator);
     }
     function unfollowCreator( address _creator ) external override{
-        require(following[_creator][msg.sender], "Not allowed");
-        following[_creator][msg.sender] = false;
+        require(following[msg.sender][_creator], "Not allowed");
+        following[msg.sender][_creator] = false;
         creators[_creator].totalFollowers --;
     }
-    function isFollowing( address _creator, address _follower ) external view override returns (bool){
-        return following[_creator][_follower];
+    function isFollowing( address _follower, address _creator ) external view override returns (bool){
+        return following[_follower][_creator];
     }
     function getTotalFollowers( address _creator ) external view override returns (uint256){
         return creators[_creator].totalFollowers;
@@ -194,7 +189,12 @@ contract SessionVideo is ISessionVideo {
     function setProjectWallet( address _projectWallet ) external onlyOwner() override{
         projectWallet = _projectWallet;
     }
-    function setFee(uint256 _projectSharedPercentage, uint256 _creatorSharedPercentage, uint256 _minterSharedPercentage) external onlyOwner override {
+    function setRevenueSplit(
+        uint256 _projectSharedPercentage,
+        uint256 _creatorSharedPercentage,
+        uint256 _minterSharedPercentage
+    ) external onlyOwner override {
+        require((_projectSharedPercentage + _creatorSharedPercentage + _minterSharedPercentage) == 100, "Invalid split ratio");
         projectSharePercentage = _projectSharedPercentage;
         creatorSharePercentage = _creatorSharedPercentage;
         minterSharePercentage = _minterSharedPercentage;
