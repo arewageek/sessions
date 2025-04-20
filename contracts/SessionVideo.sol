@@ -2,6 +2,8 @@
 
 pragma solidity 0.8.28;
 
+// import {Reentrancy} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ISessionVideo} from "./interfaces/ISessionVideo.sol";
 
 contract SessionVideo is ISessionVideo {
@@ -10,14 +12,14 @@ contract SessionVideo is ISessionVideo {
     // project wallet
     address public owner;
     address public projectWallet;
-
-    // project share percentage
     uint256 public videoCount;
 
-    // mint share perwhere is shecentages
+    // mint share percentages
     uint256 public creatorSharePercentage = 60;
     uint256 public projectSharePercentage = 30;
     uint256 public minterSharePercentage = 10;
+
+    uint256 fee;
 
     mapping(uint256 => Video) public videos;
     mapping(address => Creator) public creators;
@@ -46,6 +48,8 @@ contract SessionVideo is ISessionVideo {
     constructor(){
         owner = msg.sender;
         projectWallet = msg.sender;
+        // _reentrancyGuardEntered();
+        fee = 70; // 0.7$ worth of base eth
     }
 
     // --------- external functions ---------
@@ -70,18 +74,18 @@ contract SessionVideo is ISessionVideo {
         emit VideoUploaded(videoCount, msg.sender, _metadataUri, _mintLimit, _price);
     }
 
-    function updateMintLimit( uint256 _videoId, uint256 _newMintLimit ) external override {
+    function updateMintLimit( uint256 _videoId, uint256 _newMintLimit ) external onlyCreator(_videoId) override {
         videos[_videoId].mintLimit = _newMintLimit;
         emit MintLimitUpdated(_videoId, _newMintLimit);
     }
 
-    function updatePrice( uint256 _videoId, uint256 _newPrice ) external override {
+    function updatePrice( uint256 _videoId, uint256 _newPrice ) external onlyCreator(_videoId) override {
         videos[_videoId].price = _newPrice;
         emit MintPriceUpdated(_videoId, _newPrice);
     }
 
     // minting
-    function mintVideo(uint256 _videoId) external payable override paidExactMintFee(_videoId){
+    function mintVideo(uint256 _videoId) external payable override paidExactMintFee(_videoId) videoExists(_videoId){
         Video storage video = videos[_videoId];
 
         require(video.totalMints < video.mintLimit, "Mint limit reached!");
@@ -94,14 +98,14 @@ contract SessionVideo is ISessionVideo {
     }
 
     // engagement
-    function likeVideo(uint256 _videoId) external override {
+    function likeVideo(uint256 _videoId) external videoExists(_videoId) override {
         require(! likedBy[_videoId][msg.sender], "Already liked");
         videos[_videoId].likes ++;
         likedBy[_videoId][msg.sender] = true;
 
         emit VideoLiked(_videoId, msg.sender);
     }
-    function unlikeVideo(uint256 _videoId) external override {
+    function unlikeVideo(uint256 _videoId) external videoExists(_videoId) override {
         require(likedBy[_videoId][msg.sender], "No likes to remove");
 
         videos[_videoId].likes --;
@@ -109,7 +113,7 @@ contract SessionVideo is ISessionVideo {
 
         emit VideoUnliked(_videoId, msg.sender);
     }
-    function commentOnVideo( uint256 _videoId, string memory _commentText ) external override{
+    function commentOnVideo( uint256 _videoId, string memory _commentText ) external videoExists(_videoId) override{
         Comment memory comment = Comment({
             commenter: msg.sender,
             text: _commentText,
@@ -227,6 +231,10 @@ contract SessionVideo is ISessionVideo {
         projectSharePercentage = _projectSharedPercentage;
         creatorSharePercentage = _creatorSharedPercentage;
         minterSharePercentage = _minterSharedPercentage;
+    }
+
+    function setFee(uint _newFee) external onlyOwner{
+        fee = _newFee;
     }
 
     function withdraw() external onlyOwner override {

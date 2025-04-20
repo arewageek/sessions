@@ -95,6 +95,7 @@ interface ISessionVideo {
     function setProjectWallet( address _projectWallet ) external;
     function setRevenueSplit(uint256 _projectSharedPercentage, uint256 _creatorSharedPercentage, uint256 _minterSharedPercentage) external;
     function withdraw() external;
+    function setFee(uint _newFee) external;
 
     // admin view functions
     function getBalance() external view returns (uint256);
