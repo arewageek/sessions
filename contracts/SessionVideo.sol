@@ -6,6 +6,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ISessionVideo} from "./interfaces/ISessionVideo.sol";
+import {ERC721Base} from "./ERC721Base.sol";
 
 contract SessionVideo is ISessionVideo, ReentrancyGuard {
     // state variables
@@ -29,6 +30,7 @@ contract SessionVideo is ISessionVideo, ReentrancyGuard {
     mapping(address => mapping(address => bool)) public following;
     mapping(uint => mapping(address => bool)) public likedBy;
     mapping(uint => Comment[]) public comments;
+    mapping(address => address[]) public creatorCollections;
 
     // ---------------- modifiers ----------------
     modifier onlyOwner() {
@@ -59,19 +61,19 @@ contract SessionVideo is ISessionVideo, ReentrancyGuard {
 
     // video upload and metadata
 
-    function uploadVideo(
-        string memory _metadataUri,
-        uint256 _mintLimit,
-        uint256 _price
-    ) external override {
+    function uploadVideo(string memory _metadataUri, string memory _name, string memory _symbol, uint256 _mintLimit, uint256 _price) external override {
+        address collection = _registerCreatorCollection(_name, _symbol, _metadataUri);
+
         videos[videoCount] = Video({
             creator: msg.sender,
+            collection: collection,
             metadataUri: _metadataUri,
             totalMints: 0,
             mintLimit: _mintLimit,
             price: _price,
             likes: 0
         });
+
         videoCount++;
 
         emit VideoUploaded(videoCount, msg.sender, _metadataUri, _mintLimit, _price);
@@ -154,7 +156,7 @@ contract SessionVideo is ISessionVideo, ReentrancyGuard {
     }
 
     // tipping of creators
-    function tipCreator( uint256 _videoId ) external payable videoExists(_videoId) override {
+    function tipCreator( uint256 _videoId ) external payable videoExists(_videoId) nonReentrant() override {
         require(msg.value > 0, "Invalid tip amount");
 
         Video memory video = videos[_videoId];
@@ -200,7 +202,7 @@ contract SessionVideo is ISessionVideo, ReentrancyGuard {
     // following and unfollowing
     function followCreator( address _creator ) external nonReentrant() override {
         require(msg.sender != _creator, "Cannot follow self");
-        require(following[msg.sender][_creator], "Already followed");
+        require(!following[msg.sender][_creator], "Already followed");
         following[msg.sender][_creator] = true;
         creators[_creator].totalFollowers ++;
 
@@ -208,8 +210,12 @@ contract SessionVideo is ISessionVideo, ReentrancyGuard {
     }
     function unfollowCreator( address _creator ) external nonReentrant() {
         require(following[msg.sender][_creator], "Not following");
-        following[msg.sender][_creator] = false;
-        creators[_creator].totalFollowers --;
+        Creator memory creator = creators[_creator];
+
+        if(creator.totalFollowers > 0){
+            following[msg.sender][_creator] = false;
+            creators[_creator].totalFollowers --;
+        }
     }
     function isFollowing( address _follower, address _creator ) external view returns (bool){
         return following[_follower][_creator];
@@ -248,13 +254,15 @@ contract SessionVideo is ISessionVideo, ReentrancyGuard {
     }
 
     // fee related functions
-    function getEthPriceInUsdc() public view returns (uint256) {
-        (,int price,,,) = priceFeed.latestRoundData();
-        return uint(price);
-    }
+    function getFeeAmountInEth() public view returns (uint256) {
+        (,int ethPriceInUSDC,,,) = priceFeed.latestRoundData();
+        uint8 decimals = priceFeed.decimals();
 
-    function getFeeAmountInEth() public returns (uint256) {
-        uint256 feeInEth = (usdcFee * 1e18) / getEthPriceInUsdc();
+        require(ethPriceInUSDC > 0, "Invalid price from oracle");
+
+        uint ethPrice = uint256(ethPriceInUSDC);
+
+        uint256 feeInEth = (usdcFee * 10**(18 + decimals)) / ethPrice;
         return feeInEth;
     }
 
@@ -274,5 +282,12 @@ contract SessionVideo is ISessionVideo, ReentrancyGuard {
 
     function _withdraw(address _account, uint256 _amount) internal {
         payable(_account).transfer(_amount);
+    }
+
+    function _registerCreatorCollection(string memory _name, string memory _symbol, string memory _metadataUri) internal returns (address) {
+        ERC721Base collection = new ERC721Base(_name, _symbol, msg.sender, _metadataUri);
+        creatorCollections[msg.sender].push(address(collection));
+
+        return address(collection);
     }
 }

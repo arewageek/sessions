@@ -15,6 +15,7 @@ interface ISessionVideo {
 
     struct Video {
         address creator;
+        address collection;
         string metadataUri;
         uint256 totalMints;
         uint256 mintLimit;
@@ -59,7 +60,7 @@ interface ISessionVideo {
      */
 
     // video upload and metadata
-    function uploadVideo( string memory _metadataUri, uint256 _mintLimit, uint256 _price ) external;
+    function uploadVideo(string memory _metadataUri, string memory _name, string memory _symbol, uint256 _mintLimit, uint256 _price) external;
     function updateMintLimit( uint256 _videoId, uint256 _newMintLimit ) external;
     function updatePrice( uint256 _videoId, uint256 _newPrice ) external;
 
