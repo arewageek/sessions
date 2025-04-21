@@ -5,9 +5,9 @@ pragma solidity 0.8.28;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {ISessionVideo} from "./interfaces/ISessionVideo.sol";
+import {ISessions} from "./interfaces/ISessions.sol";
 
-contract SessionVideo is ISessionVideo, ReentrancyGuard {
+contract Sessions is ISessions, ReentrancyGuard {
     // state variables
 
     // project wallet
@@ -248,13 +248,15 @@ contract SessionVideo is ISessionVideo, ReentrancyGuard {
     }
 
     // fee related functions
-    function getEthPriceInUsdc() public view returns (uint256) {
-        (,int price,,,) = priceFeed.latestRoundData();
-        return uint(price);
-    }
+    function getFeeAmountInEth() public view returns (uint256) {
+        (,int ethPriceInUSDC,,,) = priceFeed.latestRoundData();
+        uint8 decimals = priceFeed.decimals();
 
-    function getFeeAmountInEth() public returns (uint256) {
-        uint256 feeInEth = (usdcFee * 1e18) / getEthPriceInUsdc();
+        require(ethPriceInUSDC > 0, "Invalid price from oracle");
+
+        uint ethPrice = uint256(ethPriceInUSDC);
+
+        uint256 feeInEth = (usdcFee * 10**(18 + decimals)) / ethPrice;
         return feeInEth;
     }
 
