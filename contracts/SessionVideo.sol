@@ -3,6 +3,7 @@
 pragma solidity 0.8.28;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ISessionVideo} from "./interfaces/ISessionVideo.sol";
 
@@ -18,6 +19,10 @@ contract SessionVideo is ISessionVideo, ReentrancyGuard {
     uint256 public creatorSharePercentage = 60;
     uint256 public projectSharePercentage = 30;
     uint256 public minterSharePercentage = 10;
+
+    uint256 usdcFee;
+
+    AggregatorV3Interface priceFeed;
 
     mapping(uint256 => Video) public videos;
     mapping(address => Creator) public creators;
@@ -35,7 +40,7 @@ contract SessionVideo is ISessionVideo, ReentrancyGuard {
         _;
     }
     modifier paidExactMintFee(uint256 _videoId) {
-        require(msg.value == videos[_videoId].price, "Incorrect mint fee");
+        require(msg.value == videos[_videoId].price + getFeeAmountInEth(), "Incorrect mint fee");
         _;
     }
     modifier videoExists(uint256 _videoId) {
@@ -43,9 +48,11 @@ contract SessionVideo is ISessionVideo, ReentrancyGuard {
         _;
     }
 
-    constructor(){
+    constructor(address _chain){
         owner = msg.sender;
         projectWallet = msg.sender;
+        usdcFee = 7 * 10**5; // 0.7$ worth of base eth
+        priceFeed = AggregatorV3Interface(_chain);
     }
 
     // --------- external functions ---------
@@ -225,7 +232,11 @@ contract SessionVideo is ISessionVideo, ReentrancyGuard {
         creatorSharePercentage = _creatorSharedPercentage;
         minterSharePercentage = _minterSharedPercentage;
     }
-    
+
+    function setFee(uint _newFee) external onlyOwner{
+        usdcFee = _newFee;
+    }
+
     function withdraw() external onlyOwner override {
         uint256 balance = address(this).balance;
         _withdraw(projectWallet, balance);
@@ -234,6 +245,17 @@ contract SessionVideo is ISessionVideo, ReentrancyGuard {
     // admin view functions
     function getBalance() external view override returns (uint256) {
         return address(this).balance;
+    }
+
+    // fee related functions
+    function getEthPriceInUsdc() public view returns (uint256) {
+        (,int price,,,) = priceFeed.latestRoundData();
+        return uint(price);
+    }
+
+    function getFeeAmountInEth() public returns (uint256) {
+        uint256 feeInEth = (usdcFee * 1e18) / getEthPriceInUsdc();
+        return feeInEth;
     }
 
     // --------- internal functions ---------
