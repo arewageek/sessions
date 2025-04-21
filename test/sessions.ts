@@ -3,6 +3,10 @@ import hre from "hardhat";
 import { getAddress, parseGwei } from "viem";
 
 describe("Sessions Contract Test", function () {
+  beforeEach(async function () {
+    //
+  });
+
   describe("Video Test", function () {
     describe("Video Upload", function () {
       it("Should upload a video", async function () {
@@ -21,7 +25,7 @@ describe("Sessions Contract Test", function () {
         //
       });
     });
-    describe("Update mint limit", async function () {
+    describe("Update mint limit", function () {
       it("Should update mint limit", async function () {
         //
       });
@@ -31,15 +35,15 @@ describe("Sessions Contract Test", function () {
       });
     });
 
-    describe("Update Mint price", async function () {
+    describe("Update Mint price", function () {
       it("Should update mint price", async function () {
         //
       });
     });
   });
 
-  describe("Video engagement", async function () {
-    describe("Like and unlike videos", async function () {
+  describe("Video engagement", function () {
+    describe("Like and unlike videos", function () {
       it("Should like video", async function () {
         //
       });
@@ -61,7 +65,7 @@ describe("Sessions Contract Test", function () {
       });
     });
 
-    describe("Comment on video", async function () {
+    describe("Comment on video", function () {
       it("Should drop a comment on video", async function () {
         //
       });
@@ -71,7 +75,7 @@ describe("Sessions Contract Test", function () {
     });
   });
 
-  describe("Get video data", async function () {
+  describe("Get video data", function () {
     it("Should get total comments", async function () {
       //
     });
@@ -80,7 +84,7 @@ describe("Sessions Contract Test", function () {
       //
     });
 
-    it("get video", async function () {
+    it("should get a single video", async function () {
       //
     });
 
@@ -89,7 +93,7 @@ describe("Sessions Contract Test", function () {
     });
   });
 
-  describe("Creator tests", async function () {
+  describe("Creator tests", function () {
     it("Should update creator profile", async function () {
       //
     });
@@ -98,11 +102,7 @@ describe("Sessions Contract Test", function () {
       //
     });
 
-    it("Should get creator profile", async function () {
-      //
-    });
-
-    describe("follow or unfollow creator", async function () {
+    describe("follow or unfollow creator", function () {
       it("Should follow creator", async function () {
         //
       });
@@ -129,7 +129,7 @@ describe("Sessions Contract Test", function () {
     });
   });
 
-  describe("Contract admin tests", async function () {
+  describe("Contract admin tests", function () {
     it("Should revert if caller is not admin", async function () {
       //
     });
