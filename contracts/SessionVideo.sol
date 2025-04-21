@@ -2,11 +2,11 @@
 
 pragma solidity 0.8.28;
 
-// import {Reentrancy} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ISessionVideo} from "./interfaces/ISessionVideo.sol";
 
-contract SessionVideo is ISessionVideo {
+contract SessionVideo is ISessionVideo, ReentrancyGuard {
     // state variables
 
     // project wallet
@@ -18,8 +18,6 @@ contract SessionVideo is ISessionVideo {
     uint256 public creatorSharePercentage = 60;
     uint256 public projectSharePercentage = 30;
     uint256 public minterSharePercentage = 10;
-
-    uint256 fee;
 
     mapping(uint256 => Video) public videos;
     mapping(address => Creator) public creators;
@@ -48,8 +46,6 @@ contract SessionVideo is ISessionVideo {
     constructor(){
         owner = msg.sender;
         projectWallet = msg.sender;
-        // _reentrancyGuardEntered();
-        fee = 70; // 0.7$ worth of base eth
     }
 
     // --------- external functions ---------
@@ -85,7 +81,7 @@ contract SessionVideo is ISessionVideo {
     }
 
     // minting
-    function mintVideo(uint256 _videoId) external payable override paidExactMintFee(_videoId) videoExists(_videoId){
+    function mintVideo(uint256 _videoId) external payable override paidExactMintFee(_videoId) videoExists(_videoId) nonReentrant(){
         Video storage video = videos[_videoId];
 
         require(video.totalMints < video.mintLimit, "Mint limit reached!");
@@ -98,14 +94,14 @@ contract SessionVideo is ISessionVideo {
     }
 
     // engagement
-    function likeVideo(uint256 _videoId) external videoExists(_videoId) override {
+    function likeVideo(uint256 _videoId) external videoExists(_videoId) override nonReentrant() {
         require(! likedBy[_videoId][msg.sender], "Already liked");
         videos[_videoId].likes ++;
         likedBy[_videoId][msg.sender] = true;
 
         emit VideoLiked(_videoId, msg.sender);
     }
-    function unlikeVideo(uint256 _videoId) external videoExists(_videoId) override {
+    function unlikeVideo(uint256 _videoId) external videoExists(_videoId) override nonReentrant() {
         require(likedBy[_videoId][msg.sender], "No likes to remove");
 
         videos[_videoId].likes --;
@@ -155,13 +151,12 @@ contract SessionVideo is ISessionVideo {
         require(msg.value > 0, "Invalid tip amount");
 
         Video memory video = videos[_videoId];
-        address creator = video.creator;
 
-        creators[creator].totalTipsReceived += msg.value;
+        creators[video.creator].totalTipsReceived += msg.value;
 
-        payable(creator).transfer(msg.value);
+        payable(video.creator).transfer(msg.value);
 
-        emit CreatorTipped(msg.sender, creator, msg.value, _videoId);
+        emit CreatorTipped(msg.sender, video.creator, msg.value, _videoId);
     }
 
     // view data
@@ -174,8 +169,6 @@ contract SessionVideo is ISessionVideo {
     function hasLiked(uint256 _videoId, address _user) external view returns (bool) {
         return likedBy[_videoId][_user];
     }
-
-
 
     // creator functions
     function updateProfile(string memory _metadataUri) external override {
@@ -198,7 +191,7 @@ contract SessionVideo is ISessionVideo {
     }
 
     // following and unfollowing
-    function followCreator( address _creator ) external override {
+    function followCreator( address _creator ) external nonReentrant() override {
         require(msg.sender != _creator, "Cannot follow self");
         require(following[msg.sender][_creator], "Already followed");
         following[msg.sender][_creator] = true;
@@ -206,7 +199,7 @@ contract SessionVideo is ISessionVideo {
 
         emit CreatorFollowed(msg.sender, _creator);
     }
-    function unfollowCreator( address _creator ) external override{
+    function unfollowCreator( address _creator ) external nonReentrant() {
         require(following[msg.sender][_creator], "Not following");
         following[msg.sender][_creator] = false;
         creators[_creator].totalFollowers --;
@@ -232,11 +225,7 @@ contract SessionVideo is ISessionVideo {
         creatorSharePercentage = _creatorSharedPercentage;
         minterSharePercentage = _minterSharedPercentage;
     }
-
-    function setFee(uint _newFee) external onlyOwner{
-        fee = _newFee;
-    }
-
+    
     function withdraw() external onlyOwner override {
         uint256 balance = address(this).balance;
         _withdraw(projectWallet, balance);
