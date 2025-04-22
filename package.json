@@ -3,6 +3,7 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-ignition": "^0.15.11",
     "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.0.13",
     "hardhat": "^2.23.0"
   },
   "dependencies": {

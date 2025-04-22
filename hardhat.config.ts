@@ -1,10 +1,9 @@
 import type { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox-viem";
 import * as dotenv from "dotenv";
+import "@nomicfoundation/hardhat-verify";
 
 dotenv.config();
-
-// console.log("INFURA API KEY", process.env.INFURA_API_KEY!);
 
 const config: HardhatUserConfig = {
   solidity: "0.8.28",
@@ -22,12 +21,12 @@ const config: HardhatUserConfig = {
     sepolia: {
       // eth sepolia
       url: `https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY!}`,
-      accounts: [process.env.PRIVATE_KEY!],
+      accounts: [process.env.PRIVATE_KEY2!],
     },
   },
   etherscan: {
     apiKey: {
-      base: process.env.ETHERSCAN_API_KEY!,
+      testnet: process.env.BASESCAN_API_KEY!,
     },
     customChains: [
       {
