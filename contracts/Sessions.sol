@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity 0.8.28;
+pragma solidity ^0.8.28;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
@@ -20,7 +20,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     uint256 public projectSharePercentage = 30;
     uint256 public minterSharePercentage = 10;
 
-    uint256 usdcFee;
+    uint256 public usdcFee;
 
     AggregatorV3Interface priceFeed;
 
@@ -32,19 +32,20 @@ contract Sessions is ISessions, ReentrancyGuard {
 
     // ---------------- modifiers ----------------
     modifier onlyOwner() {
-        require(msg.sender == projectWallet, "Not authorized");
+        require(msg.sender == projectWallet, NotAuthorizedError());
         _;
     }
     modifier onlyCreator(uint256 videoId) {
-        require(videos[videoId].creator == msg.sender, "Not video creator");
+        require(videos[videoId].creator == msg.sender, NotAuthorizedError());
         _;
     }
     modifier paidExactMintFee(uint256 _videoId) {
-        require(msg.value == videos[_videoId].price + getFeeAmountInEth(), "Incorrect mint fee");
+        // uint256 feeAmountInEth = getFeeAmountInEth();
+        require(msg.value == videos[_videoId].price, IncorrectMintFeeError());
         _;
     }
     modifier videoExists(uint256 _videoId) {
-        require(_videoId < videoCount, "Video does not exist");
+        require(_videoId < videoCount, VideoNotExistError());
         _;
     }
 
@@ -63,7 +64,7 @@ contract Sessions is ISessions, ReentrancyGuard {
         string memory _metadataUri,
         uint256 _mintLimit,
         uint256 _price
-    ) external override {
+    ) external override nonReentrant() {
         videos[videoCount] = Video({
             creator: msg.sender,
             metadataUri: _metadataUri,
@@ -72,9 +73,9 @@ contract Sessions is ISessions, ReentrancyGuard {
             price: _price,
             likes: 0
         });
-        videoCount++;
 
         emit VideoUploaded(videoCount, msg.sender, _metadataUri, _mintLimit, _price);
+        videoCount++;
     }
 
     function updateMintLimit( uint256 _videoId, uint256 _newMintLimit ) external onlyCreator(_videoId) override {
@@ -82,7 +83,7 @@ contract Sessions is ISessions, ReentrancyGuard {
         emit MintLimitUpdated(_videoId, _newMintLimit);
     }
 
-    function updatePrice( uint256 _videoId, uint256 _newPrice ) external onlyCreator(_videoId) override {
+    function updateMintPrice( uint256 _videoId, uint256 _newPrice ) external onlyCreator(_videoId) override {
         videos[_videoId].price = _newPrice;
         emit MintPriceUpdated(_videoId, _newPrice);
     }
@@ -91,7 +92,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     function mintVideo(uint256 _videoId) external payable override paidExactMintFee(_videoId) videoExists(_videoId) nonReentrant(){
         Video storage video = videos[_videoId];
 
-        require(video.totalMints < video.mintLimit, "Mint limit reached!");
+        require(video.totalMints < video.mintLimit, MintLimitReachedError());
 
         video.totalMints ++;
 
@@ -102,7 +103,7 @@ contract Sessions is ISessions, ReentrancyGuard {
 
     // engagement
     function likeVideo(uint256 _videoId) external videoExists(_videoId) override nonReentrant() {
-        require(! likedBy[_videoId][msg.sender], "Already liked");
+        require(! likedBy[_videoId][msg.sender], InvalidVideoEngagementError('like'));
         videos[_videoId].likes ++;
         likedBy[_videoId][msg.sender] = true;
 
@@ -154,16 +155,14 @@ contract Sessions is ISessions, ReentrancyGuard {
     }
 
     // tipping of creators
-    function tipCreator( uint256 _videoId ) external payable videoExists(_videoId) override {
-        require(msg.value > 0, "Invalid tip amount");
+    function tipCreator(address _creator, uint256 _amount) external payable override {
+        require(_amount > 0, "Invalid tip amount");
 
-        Video memory video = videos[_videoId];
+        creators[_creator].totalTipsReceived += msg.value;
 
-        creators[video.creator].totalTipsReceived += msg.value;
+        payable(_creator).transfer(_amount);
 
-        payable(video.creator).transfer(msg.value);
-
-        emit CreatorTipped(msg.sender, video.creator, msg.value, _videoId);
+        emit CreatorTipped(msg.sender, _creator, _amount);
     }
 
     // view data
@@ -226,8 +225,8 @@ contract Sessions is ISessions, ReentrancyGuard {
         uint256 _projectSharedPercentage,
         uint256 _creatorSharedPercentage,
         uint256 _minterSharedPercentage
-    ) external onlyOwner override {
-        require((_projectSharedPercentage + _creatorSharedPercentage + _minterSharedPercentage) == 100, "Invalid split ratio");
+    ) external onlyOwner() override {
+        require((_projectSharedPercentage + _creatorSharedPercentage + _minterSharedPercentage) == 100, InvalidRevenueSplitRatio());
         projectSharePercentage = _projectSharedPercentage;
         creatorSharePercentage = _creatorSharedPercentage;
         minterSharePercentage = _minterSharedPercentage;
@@ -250,13 +249,12 @@ contract Sessions is ISessions, ReentrancyGuard {
     // fee related functions
     function getFeeAmountInEth() public view returns (uint256) {
         (,int ethPriceInUSDC,,,) = priceFeed.latestRoundData();
-        uint8 decimals = priceFeed.decimals();
 
         require(ethPriceInUSDC > 0, "Invalid price from oracle");
 
         uint ethPrice = uint256(ethPriceInUSDC);
 
-        uint256 feeInEth = (usdcFee * 10**(18 + decimals)) / ethPrice;
+        uint256 feeInEth = (uint256(usdcFee) * 10**18) / ethPrice;
         return feeInEth;
     }
 

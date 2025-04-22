@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.28;
 
 interface ISessions {
     /**
@@ -42,7 +42,7 @@ interface ISessions {
     event VideoMinted(uint256 indexed videoId, address indexed minter, uint256 price);
 
     // tipping of creators
-    event CreatorTipped(address indexed tippedBy, address indexed creator, uint256 amount, uint256 videoId);
+    event CreatorTipped(address indexed tippedBy, address indexed creator, uint256 amount);
 
     // engagement
     event VideoLiked(uint256 indexed videoId, address indexed user);
@@ -61,7 +61,7 @@ interface ISessions {
     // video upload and metadata
     function uploadVideo( string memory _metadataUri, uint256 _mintLimit, uint256 _price ) external;
     function updateMintLimit( uint256 _videoId, uint256 _newMintLimit ) external;
-    function updatePrice( uint256 _videoId, uint256 _newPrice ) external;
+    function updateMintPrice( uint256 _videoId, uint256 _newPrice ) external;
 
     // minting
     function mintVideo(uint256 _videoId) external payable;
@@ -72,7 +72,7 @@ interface ISessions {
     function commentOnVideo( uint256 _videoId, string memory _commentText ) external;
 
     // tipping of creators
-    function tipCreator( uint256 _videoId ) external payable;
+    function tipCreator( address _creator, uint _amount ) external payable;
 
     // view data
     function getVideo(uint256 _videoId) external view returns (Video memory);
@@ -99,4 +99,15 @@ interface ISessions {
 
     // admin view functions
     function getBalance() external view returns (uint256);
+
+
+    /**
+     * Custom errors
+     */
+    error NotAuthorizedError();
+    error IncorrectMintFeeError();
+    error MintLimitReachedError();
+    error VideoNotExistError();
+    error InvalidRevenueSplitRatio();
+    error InvalidVideoEngagementError(string);
 }
