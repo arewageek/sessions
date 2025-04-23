@@ -110,7 +110,7 @@ contract Sessions is ISessions, ReentrancyGuard {
         emit VideoLiked(_videoId, msg.sender);
     }
     function unlikeVideo(uint256 _videoId) external videoExists(_videoId) override nonReentrant() {
-        require(likedBy[_videoId][msg.sender], "No likes to remove");
+        require(likedBy[_videoId][msg.sender], InvalidVideoEngagementError('unlike'));
 
         videos[_videoId].likes --;
         likedBy[_videoId][msg.sender] = false;
@@ -172,7 +172,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     function getVideoComments(uint256 _videoId) external view returns (Comment[] memory) {
         return comments[_videoId];
     }
-    function hasLiked(uint256 _videoId, address _user) external view returns (bool) {
+    function hasLikedVideo(uint256 _videoId, address _user) external view returns (bool) {
         return likedBy[_videoId][_user];
     }
 
@@ -198,17 +198,19 @@ contract Sessions is ISessions, ReentrancyGuard {
 
     // following and unfollowing
     function followCreator( address _creator ) external nonReentrant() override {
-        require(msg.sender != _creator, "Cannot follow self");
-        require(following[msg.sender][_creator], "Already followed");
+        require(msg.sender != _creator, InvalidFollowingError("Cannot follow self"));
+        require(!following[msg.sender][_creator], InvalidFollowingError("Already following"));
         following[msg.sender][_creator] = true;
         creators[_creator].totalFollowers ++;
 
         emit CreatorFollowed(msg.sender, _creator);
     }
     function unfollowCreator( address _creator ) external nonReentrant() {
-        require(following[msg.sender][_creator], "Not following");
+        require(following[msg.sender][_creator], InvalidFollowingError("Not following"));
         following[msg.sender][_creator] = false;
         creators[_creator].totalFollowers --;
+
+        emit CreatorUnfollowed(msg.sender, _creator);
     }
     function isFollowing( address _follower, address _creator ) external view returns (bool){
         return following[_follower][_creator];

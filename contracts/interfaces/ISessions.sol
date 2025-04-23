@@ -76,7 +76,7 @@ interface ISessions {
 
     // view data
     function getVideo(uint256 _videoId) external view returns (Video memory);
-    function hasLiked(uint256 _videoId, address _user) external view returns (bool);
+    function hasLikedVideo(uint256 _videoId, address _user) external view returns (bool);
     function getVideoComments(uint256 _videoId) external view returns (Comment[] memory);
     function getTotalComments(uint256 _videoId) external view returns (uint256);
     function getVideoCommentsPaginated(uint256 _videoId, uint256 offset, uint256 limit) external view returns (Comment[] memory);
@@ -110,4 +110,5 @@ interface ISessions {
     error VideoNotExistError();
     error InvalidRevenueSplitRatio();
     error InvalidVideoEngagementError(string);
+    error InvalidFollowingError(string);
 }
