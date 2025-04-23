@@ -20,10 +20,8 @@ let video: string,
   price: bigint,
   likes: bigint;
 
-const datalogs: any[] = [];
-
 describe("Sessions Contract Test", function () {
-  before(async function () {
+  before(async () => {
     // get the signers
     [owner, creator, user1, user2] = await hre.viem.getWalletClients();
 
@@ -62,7 +60,7 @@ describe("Sessions Contract Test", function () {
   });
 
   describe("Contract deployment", function () {
-    it("Should deploy contract", async function () {
+    it("Should deploy contract", async () => {
       expect(sessions.address).to.be.a("string");
     });
   });
@@ -80,12 +78,12 @@ describe("Sessions Contract Test", function () {
     });
 
     describe("Video Upload", function () {
-      it("Should upload a video", async function () {
+      it("Should upload a video", async () => {
         expect(video).to.be.a("string");
       });
 
       describe("Mint video", () => {
-        it("Should mint video", async function () {
+        it("Should mint video", async () => {
           const mintTx = await mintVideo({
             videoId: 1,
             contract: sessions,
@@ -93,12 +91,12 @@ describe("Sessions Contract Test", function () {
             price,
           });
 
-          datalogs.push({ mintTx });
           const mintCount = await sessions.read.getVideo([1]);
+
           expect(mintCount.totalMints).to.equal(1n);
         });
 
-        it("Should revert if mint fee is not correct", async function () {
+        it("Should revert if mint fee is not correct", async () => {
           await expect(
             mintVideo({
               videoId: 1,
@@ -109,7 +107,7 @@ describe("Sessions Contract Test", function () {
           ).to.be.rejectedWith("IncorrectMintFeeError");
         });
 
-        it("Should revert if mint limit is reached", async function () {
+        it("Should revert if mint limit is reached", async () => {
           await expect(
             mintVideo({
               videoId: 1,
@@ -122,7 +120,7 @@ describe("Sessions Contract Test", function () {
       });
     });
     describe("Update mint limit", function () {
-      it("Should update mint limit", async function () {
+      it("Should update mint limit", async () => {
         await sessions.write.updateMintLimit([1, 5], {
           account: creator.account?.address,
         });
@@ -132,7 +130,7 @@ describe("Sessions Contract Test", function () {
         expect(videoData.mintLimit).to.equal(5n);
       });
 
-      it("Should revert if caller is not creator", async function () {
+      it("Should revert if caller is not creator", async () => {
         await expect(
           sessions.write.updateMintLimit([0, 2], {
             account: user2.account?.address,
@@ -142,12 +140,13 @@ describe("Sessions Contract Test", function () {
     });
 
     describe("Update Mint price", function () {
-      it("Should update mint price", async function () {
+      it("Should update mint price", async () => {
         await sessions.write.updateMintPrice([1, parseEther("0.1")], {
           account: creator.account?.address,
         });
 
         const videoData = await sessions.read.getVideo([1]);
+
         expect(videoData.price).to.equal(parseEther("0.1"));
       });
       it("Should revert if caller is not creator", async () => {
@@ -167,16 +166,17 @@ describe("Sessions Contract Test", function () {
       prevVideoData = await sessions.read.getVideo([1]);
     });
     describe("Like and unlike videos", function () {
-      it("Should like video", async function () {
+      it("Should like video", async () => {
         await sessions.write.likeVideo([1], {
           account: user1.account?.address,
         });
 
         const newVideoData = await sessions.read.getVideo([1]);
+
         expect(newVideoData.likes).to.equal(prevVideoData.likes + 1n);
       });
 
-      it("Should revert if video has already been liked by user", async function () {
+      it("Should revert if video has already been liked by user", async () => {
         await expect(
           sessions.write.likeVideo([1], {
             account: user1.account?.address,
@@ -184,7 +184,7 @@ describe("Sessions Contract Test", function () {
         ).to.be.rejectedWith('InvalidVideoEngagementError("like")');
       });
 
-      it("Should check if user has liked video", async function () {
+      it("Should check if user has liked video", async () => {
         const hasLikedFirstVideo = await sessions.read.hasLikedVideo(
           [1, user1.account?.address],
           {
@@ -203,16 +203,17 @@ describe("Sessions Contract Test", function () {
         expect(hasLikedSecondVideo).to.be.equal(false);
       });
 
-      it("Should unlike video", async function () {
+      it("Should unlike video", async () => {
         await sessions.write.unlikeVideo([1], {
           account: user1.account?.address,
         });
 
         const newVideoData = await sessions.read.getVideo([1]);
+
         expect(newVideoData.likes).to.equal(prevVideoData.likes - 1n);
       });
 
-      it("Should revert if video unlike is not allowed for user", async function () {
+      it("Should revert if video unlike is not allowed for user", async () => {
         await expect(
           sessions.write.unlikeVideo([0], {
             account: user1.account?.address,
@@ -222,19 +223,16 @@ describe("Sessions Contract Test", function () {
     });
 
     describe("Comment on video", function () {
-      it("Should drop a comment on video", async function () {
-        const comment = await sessions.write.commentOnVideo(
-          [1, "Nice video!"],
-          {
-            account: user1.account?.address,
-          }
-        );
+      it("Should drop a comment on video", async () => {
+        await sessions.write.commentOnVideo([1, "Nice video!"], {
+          account: user1.account?.address,
+        });
 
         const videoCommentsCount = await sessions.read.getTotalComments([1]);
 
         expect(videoCommentsCount).to.equal(1n);
       });
-      it("Should revert if video does not exist", async function () {
+      it("Should revert if video does not exist", async () => {
         await expect(
           sessions.write.commentOnVideo([8, "Nice video!"], {
             account: user1.account?.address,
@@ -253,14 +251,15 @@ describe("Sessions Contract Test", function () {
       }
     });
 
-    it("Should get total comments count", async function () {
+    it("Should get total comments count", async () => {
       const commentsCount = await sessions.read.getTotalComments([0]);
 
       expect(commentsCount).to.be.equal(10n);
     });
 
-    it("Should get video comments paginated", async function () {
+    it("Should get video comments paginated", async () => {
       const comments = await sessions.read.getVideoCommentsPaginated([0, 0, 5]);
+
       expect(comments.length).to.be.equal(5);
 
       expect(comments[0].text).to.be.equal("Nice video! 0");
@@ -274,8 +273,9 @@ describe("Sessions Contract Test", function () {
       );
     });
 
-    it("should get a single video", async function () {
+    it("should get a single video", async () => {
       const video = await sessions.read.getVideo([0]);
+
       expect(video.creator.toLowerCase()).to.be.equal(
         creator.account?.address.toLowerCase()
       );
@@ -286,8 +286,9 @@ describe("Sessions Contract Test", function () {
       expect(video.likes).to.be.equal(likes);
     });
 
-    it("Should get video comments (not paginated)", async function () {
+    it("Should get video comments (not paginated)", async () => {
       const comments = await sessions.read.getVideoComments([0]);
+
       expect(comments.length).to.be.equal(10);
       expect(comments[0].text).to.be.equal("Nice video! 0");
       expect(comments[0].commenter.toLowerCase()).to.be.equal(
@@ -301,7 +302,7 @@ describe("Sessions Contract Test", function () {
   });
 
   describe("Creator tests", function () {
-    it("Should update creator profile", async function () {
+    it("Should update creator profile", async () => {
       await sessions.write.updateProfile([metadataUri], {
         account: creator.account?.address,
       });
@@ -313,7 +314,7 @@ describe("Sessions Contract Test", function () {
       expect(creatorProfile.metadataUri).to.be.equal(metadataUri);
     });
 
-    it("Should get creator profile", async function () {
+    it("Should get creator profile", async () => {
       const creatorProfile = await sessions.read.getCreatorProfile([
         creator.account?.address,
       ]);
@@ -322,7 +323,7 @@ describe("Sessions Contract Test", function () {
     });
 
     describe("follow or unfollow creator", function () {
-      it("Should follow creator", async function () {
+      it("Should follow creator", async () => {
         await sessions.write.followCreator([creator.account?.address], {
           account: user1.account?.address,
         });
@@ -335,7 +336,7 @@ describe("Sessions Contract Test", function () {
         expect(isFollowing).to.be.equal(true);
       });
 
-      it("Should revert if user is already following creator", async function () {
+      it("Should revert if user is already following creator", async () => {
         await expect(
           sessions.write.followCreator([creator.account?.address], {
             account: user1.account?.address,
@@ -343,7 +344,7 @@ describe("Sessions Contract Test", function () {
         ).to.be.rejectedWith('InvalidFollowingError("Already following")');
       });
 
-      it("Should unfollow creator", async function () {
+      it("Should unfollow creator", async () => {
         await sessions.write.unfollowCreator([creator.account?.address], {
           account: user1.account?.address,
         });
@@ -356,7 +357,7 @@ describe("Sessions Contract Test", function () {
         expect(isFollowing).to.be.equal(false);
       });
 
-      it("Should revert if user is not following creator", async function () {
+      it("Should revert if user is not following creator", async () => {
         await expect(
           sessions.write.unfollowCreator([creator.account?.address], {
             account: user1.account?.address,
@@ -364,11 +365,12 @@ describe("Sessions Contract Test", function () {
         ).to.be.rejectedWith('InvalidFollowingError("Not following")');
       });
 
-      it("Should check if user is following creator", async function () {
+      it("Should check if user is following creator", async () => {
         const prevIsFollowing = await sessions.read.isFollowing([
           user1.account?.address,
           creator.account?.address,
         ]);
+
         expect(prevIsFollowing).to.be.equal(false);
 
         await sessions.write.followCreator([creator.account?.address], {
@@ -383,7 +385,7 @@ describe("Sessions Contract Test", function () {
         expect(newIsFollowing).to.be.equal(true);
       });
 
-      it("Should get total followers count for creator", async function () {
+      it("Should get total followers count for creator", async () => {
         const creatorProfile = await sessions.read.getCreatorProfile([
           creator.account?.address,
         ]);
@@ -394,7 +396,7 @@ describe("Sessions Contract Test", function () {
   });
 
   describe("Admin tests", function () {
-    it("Should revert if caller is not admin", async function () {
+    it("Should revert if caller is not admin", async () => {
       await expect(
         sessions.write.setFee([1000], {
           account: user1.account?.address,
@@ -402,71 +404,63 @@ describe("Sessions Contract Test", function () {
       ).to.be.rejectedWith("NotAuthorizedError");
     });
 
-    it("Should set project wallet", async function () {
-      const trx = await sessions.write.setProjectWallet(
-        [user1.account?.address],
-        {
-          account: owner.account?.address,
-        }
-      );
-      const projectWallet = await sessions.read.projectWallet();
+    it("Should set revenue split", async () => {
+      await sessions.write.setRevenueSplit([0, 0, 100]);
 
-      const account = {
-        caller: owner.account?.address.toLowerCase(),
-        owner: (await sessions.read.owner()).toLowerCase(),
-      };
+      const sharedRevenue = await sessions.read.getSharedRevenue();
 
-      console.log({ match: account.owner === account.caller });
-      console.log({ account });
-
-      expect(projectWallet.toLowerCase()).to.equal(
-        user1.account?.address.toLowerCase()
-      );
+      expect(sharedRevenue).to.deep.equal([0n, 0n, 100n]);
     });
 
-    it("Should set revenue split", async function () {
-      //
-    });
-
-    it("Should revert if total revenue ratio is not 100%", async function () {
-      const contractOwner = await sessions.read.owner();
-      console.log({
-        ownerFromCode: owner.account?.address,
-        contractOwnerFromContract: contractOwner,
-      }); // Observation: Wallet addresses match in value but not case
+    it("Should revert if total revenue ratio is not 100%", async () => {
       await expect(
         sessions.write.setRevenueSplit([50, 10, 20], {
           account: owner.account?.address,
         })
-      ).to.be.rejectedWith("NotAuthorizedError");
+      ).to.be.rejectedWith("InvalidRevenueSplitRatioError");
     });
 
-    it("Should set fee", async function () {
-      // const setFee = await sessions.write.setFee([1000], {
-      //   account: owner.account?.address,
-      // });
-      // const fee = await sessions.read.usdcFee({
-      //   account: owner.account?.address,
-      // });
-      // expect(fee).to.be.equal(1000n);
+    it("Should set fee", async () => {
+      await sessions.write.setFee([1000], {
+        account: owner.account?.address,
+      });
+      const fee = await sessions.read.usdcFee({
+        account: owner.account?.address,
+      });
+
+      expect(fee).to.be.equal(1000n);
     });
 
-    it("Should withdraw funds from contract", async function () {
-      // await sessions.write.withdraw({
-      //   account: owner.account?.address,
-      // });
-      // const newContractBalance = await sessions.read.getBalance({
-      //   account: owner.account?.address,
-      // });
+    it("Should withdraw funds from contract", async () => {
+      await mintVideo({
+        videoId: 0,
+        contract: sessions,
+        account: user2.account?.address,
+        price: parseEther("0.04"),
+      });
+
+      const prevContractBalance = await sessions.read.getBalance();
+
+      await sessions.write.withdraw([], {
+        account: owner.account?.address,
+      });
+      const newContractBalance = await sessions.read.getBalance({
+        account: owner.account?.address,
+      });
+
+      expect(prevContractBalance).to.not.equal(parseEther("0"));
+      expect(newContractBalance).to.be.equal(parseEther("0"));
     });
 
-    it("Should get token balance on contract", async function () {
-      //
-    });
-  });
-  describe("----------------------Data logs------------------ ", function () {
-    it("Should log all data", async function () {
-      console.log({ datalogs });
+    it("Should set project wallet", async () => {
+      await sessions.write.setProjectWallet([user1.account?.address], {
+        account: owner.account?.address,
+      });
+      const projectWallet = await sessions.read.projectWallet();
+
+      expect(projectWallet.toLowerCase()).to.equal(
+        user1.account?.address.toLowerCase()
+      );
     });
   });
 });
