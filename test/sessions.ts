@@ -158,6 +158,7 @@ describe("Sessions Contract Test", function () {
 
   describe("Video engagement", function () {
     let prevVideoData: any;
+
     beforeEach(async () => {
       prevVideoData = await sessions.read.getVideo([1]);
     });
@@ -179,38 +180,94 @@ describe("Sessions Contract Test", function () {
         ).to.be.rejectedWith('InvalidVideoEngagementError("like")');
       });
 
+      it("Should check if user has liked video", async function () {
+        const hasLikedFirstVideo = await sessions.read.hasLikedVideo(
+          [1, user1.account?.address],
+          {
+            account: user1.account?.address,
+          }
+        );
+
+        const hasLikedSecondVideo = await sessions.read.hasLikedVideo(
+          [0, user1.account?.address],
+          {
+            account: user1.account?.address,
+          }
+        );
+
+        expect(hasLikedFirstVideo).to.be.equal(true);
+        expect(hasLikedSecondVideo).to.be.equal(false);
+      });
+
       it("Should unlike video", async function () {
-        //
+        await sessions.write.unlikeVideo([1], {
+          account: user1.account?.address,
+        });
+
+        const newVideoData = await sessions.read.getVideo([1]);
+        expect(newVideoData.likes).to.equal(prevVideoData.likes - 1n);
       });
 
       it("Should revert if video unlike is not allowed for user", async function () {
-        //
-      });
-
-      it("Should check if user has liked video", async function () {
-        //
+        await expect(
+          sessions.write.unlikeVideo([0], {
+            account: user1.account?.address,
+          })
+        ).to.be.rejectedWith('InvalidVideoEngagementError("unlike")');
       });
     });
 
     describe("Comment on video", function () {
       it("Should drop a comment on video", async function () {
-        //
+        const comment = await sessions.write.commentOnVideo(
+          [1, "Nice video!"],
+          {
+            account: user1.account?.address,
+          }
+        );
+
+        const videoCommentsCount = await sessions.read.getTotalComments([1]);
+
+        expect(videoCommentsCount).to.equal(1n);
       });
       it("Should revert if video does not exist", async function () {
-        //
+        await expect(
+          sessions.write.commentOnVideo([8, "Nice video!"], {
+            account: user1.account?.address,
+          })
+        ).to.be.rejectedWith("VideoNotExistError");
       });
     });
   });
 
   describe("Get video data", function () {
-    it("Should get total comments", async function () {
-      const comments = await sessions.read.getVideoComments([0]);
+    before(async () => {
+      for (let i = 0; i < 10; i++) {
+        await sessions.write.commentOnVideo([0, `Nice video! ${i}`], {
+          account: user1.account?.address,
+        });
+      }
+    });
 
-      datalogs.push({ comments });
+    it("Should get total comments count", async function () {
+      const commentsCount = await sessions.read.getTotalComments([0]);
+
+      expect(commentsCount).to.be.equal(10n);
     });
 
     it("Should get video comments paginated", async function () {
-      //
+      const comments = await sessions.read.getVideoCommentsPaginated([0, 0, 5]);
+      expect(comments.length).to.be.equal(5);
+
+      expect(comments[0].text).to.be.equal("Nice video! 0");
+      expect(comments[0].commenter.toLowerCase()).to.be.equal(
+        user1.account?.address.toLocaleLowerCase()
+      );
+
+      expect(comments[4].text).to.be.equal("Nice video! 4");
+      expect(comments[4].commenter.toLowerCase()).to.be.equal(
+        user1.account?.address.toLocaleLowerCase()
+      );
     });
 
     it("should get a single video", async function () {
@@ -223,47 +280,111 @@ describe("Sessions Contract Test", function () {
       expect(video.mintLimit).to.be.equal(mintLimit);
       expect(video.price).to.be.equal(price);
       expect(video.likes).to.be.equal(likes);
-
-      datalogs.push({ video });
     });
 
     it("Should get video comments (not paginated)", async function () {
-      //
+      const comments = await sessions.read.getVideoComments([0]);
+      expect(comments.length).to.be.equal(10);
+      expect(comments[0].text).to.be.equal("Nice video! 0");
+      expect(comments[0].commenter.toLowerCase()).to.be.equal(
+        user1.account?.address.toLocaleLowerCase()
+      );
+      expect(comments[9].text).to.be.equal("Nice video! 9");
+      expect(comments[9].commenter.toLowerCase()).to.be.equal(
+        user1.account?.address.toLocaleLowerCase()
+      );
     });
   });
 
   describe("Creator tests", function () {
     it("Should update creator profile", async function () {
-      //
+      await sessions.write.updateProfile([metadataUri], {
+        account: creator.account?.address,
+      });
+
+      const creatorProfile = await sessions.read.getCreatorProfile([
+        creator.account?.address,
+      ]);
+
+      expect(creatorProfile.metadataUri).to.be.equal(metadataUri);
     });
 
     it("Should get creator profile", async function () {
-      //
+      const creatorProfile = await sessions.read.getCreatorProfile([
+        creator.account?.address,
+      ]);
+
+      expect(creatorProfile.metadataUri).to.be.equal(metadataUri);
     });
 
     describe("follow or unfollow creator", function () {
       it("Should follow creator", async function () {
-        //
+        await sessions.write.followCreator([creator.account?.address], {
+          account: user1.account?.address,
+        });
+
+        const isFollowing = await sessions.read.isFollowing([
+          user1.account?.address,
+          creator.account?.address,
+        ]);
+
+        expect(isFollowing).to.be.equal(true);
       });
 
       it("Should revert if user is already following creator", async function () {
-        //
+        await expect(
+          sessions.write.followCreator([creator.account?.address], {
+            account: user1.account?.address,
+          })
+        ).to.be.rejectedWith('InvalidFollowingError("Already following")');
       });
 
       it("Should unfollow creator", async function () {
-        //
+        await sessions.write.unfollowCreator([creator.account?.address], {
+          account: user1.account?.address,
+        });
+
+        const isFollowing = await sessions.read.isFollowing([
+          user1.account?.address,
+          creator.account?.address,
+        ]);
+
+        expect(isFollowing).to.be.equal(false);
       });
 
       it("Should revert if user is not following creator", async function () {
-        //
+        await expect(
+          sessions.write.unfollowCreator([creator.account?.address], {
+            account: user1.account?.address,
+          })
+        ).to.be.rejectedWith('InvalidFollowingError("Not following")');
       });
 
       it("Should check if user is following creator", async function () {
-        //
+        const prevIsFollowing = await sessions.read.isFollowing([
+          user1.account?.address,
+          creator.account?.address,
+        ]);
+        expect(prevIsFollowing).to.be.equal(false);
+
+        await sessions.write.followCreator([creator.account?.address], {
+          account: user1.account?.address,
+        });
+
+        const newIsFollowing = await sessions.read.isFollowing([
+          user1.account?.address,
+          creator.account?.address,
+        ]);
+
+        expect(newIsFollowing).to.be.equal(true);
       });
 
       it("Should get total followers count for creator", async function () {
-        //
+        const creatorProfile = await sessions.read.getCreatorProfile([
+          creator.account?.address,
+        ]);
+
+        expect(creatorProfile.totalFollowers).to.be.equal(1n);
       });
     });
   });
