@@ -93,12 +93,15 @@ interface ISessions {
 
     // contract admin functions
     function setProjectWallet( address _projectWallet ) external;
-    function setRevenueSplit(uint256 _projectSharedPercentage, uint256 _creatorSharedPercentage, uint256 _minterSharedPercentage) external;
+    function setRevenueSplit(uint256 _projectShare, uint256 _creatorShare, uint256 _minterShare) external;
     function withdraw() external;
     function setFee(uint _newFee) external;
 
     // admin view functions
     function getBalance() external view returns (uint256);
+
+    // fee related functions
+    function getSharedRevenue() external view returns (uint256[3] memory);
 
 
     /**
@@ -108,7 +111,7 @@ interface ISessions {
     error IncorrectMintFeeError();
     error MintLimitReachedError();
     error VideoNotExistError();
-    error InvalidRevenueSplitRatio();
+    error InvalidRevenueSplitRatioError();
     error InvalidVideoEngagementError(string);
     error InvalidFollowingError(string);
 }

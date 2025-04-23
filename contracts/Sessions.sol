@@ -220,18 +220,19 @@ contract Sessions is ISessions, ReentrancyGuard {
     }
 
    // contract admin functions
-    function setProjectWallet( address _projectWallet ) external onlyOwner() override{
+    function setProjectWallet( address _projectWallet ) external onlyOwner() override {
         projectWallet = _projectWallet;
     }
     function setRevenueSplit(
-        uint256 _projectSharedPercentage,
-        uint256 _creatorSharedPercentage,
-        uint256 _minterSharedPercentage
+        uint256 _projectSharePercentage,
+        uint256 _creatorSharePercentage,
+        uint256 _minterSharePercentage
     ) external onlyOwner() override {
-        require((_projectSharedPercentage + _creatorSharedPercentage + _minterSharedPercentage) == 100, InvalidRevenueSplitRatio());
-        projectSharePercentage = _projectSharedPercentage;
-        creatorSharePercentage = _creatorSharedPercentage;
-        minterSharePercentage = _minterSharedPercentage;
+        require(_projectSharePercentage + _creatorSharePercentage + _minterSharePercentage == 100, InvalidRevenueSplitRatioError());
+
+        projectSharePercentage = _projectSharePercentage;
+        creatorSharePercentage = _creatorSharePercentage;
+        minterSharePercentage = _minterSharePercentage;
     }
 
     function setFee(uint _newFee) external onlyOwner{
@@ -239,8 +240,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     }
 
     function withdraw() external onlyOwner override {
-        uint256 balance = address(this).balance;
-        _withdraw(projectWallet, balance);
+        payable(projectWallet).transfer(address(this).balance);
     }
 
     // admin view functions
@@ -260,16 +260,24 @@ contract Sessions is ISessions, ReentrancyGuard {
         return feeInEth;
     }
 
+    function getSharedRevenue() external view returns (uint256[3] memory){
+        return [
+            projectSharePercentage,
+            creatorSharePercentage,
+            minterSharePercentage
+        ];
+    }
+
     // --------- internal functions ---------
 
     function _splitPayment(uint256 _amount, address _creator) internal {
         require(msg.value == _amount, "Incorrect payment amount");
 
-        uint256 projectShare = (_amount * projectSharePercentage) / 100;
+        // uint256 projectShare = (_amount * projectSharePercentage) / 100;
         uint256 creatorShare = (_amount * creatorSharePercentage) / 100;
         uint256 minterShare = (_amount * minterSharePercentage) / 100;
 
-        payable(projectWallet).transfer(projectShare);
+        // payable(projectWallet).transfer(projectShare);
         payable(_creator).transfer(creatorShare);
         payable(msg.sender).transfer(minterShare);
     }
