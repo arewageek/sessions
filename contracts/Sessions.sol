@@ -49,8 +49,7 @@ contract Sessions is ISessions, ReentrancyGuard {
         _;
     }
 
-    constructor(address _owner, address _chain){
-        owner = _owner;
+    constructor(address _chain){
         projectWallet = msg.sender;
         usdcFee = 7 * 10**5; // 0.7$ worth of base eth
         priceFeed = AggregatorV3Interface(_chain);

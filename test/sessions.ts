@@ -34,10 +34,7 @@ describe("Sessions Contract Test", function () {
     likes = 0n;
 
     // Deploy the contract and get the instances
-    sessions = await hre.viem.deployContract("Sessions", [
-      owner.account?.address,
-      ethUsdPriceFeed,
-    ]);
+    sessions = await hre.viem.deployContract("Sessions", [ethUsdPriceFeed]);
 
     // upload a video
     video = await uploadVideo({
