@@ -12,7 +12,7 @@ interface MintVideoArgs extends IVideoData {
 
 interface UploadVideoArgs extends IVideoData {
   mintLimit: bigint;
-  metadataUri: string;
+  mediaId: bigint;
 }
 
 export const mintVideo = async ({
@@ -30,11 +30,11 @@ export const mintVideo = async ({
 export const uploadVideo = async ({
   contract,
   account,
-  metadataUri,
+  mediaId,
   mintLimit,
   price,
 }: UploadVideoArgs) => {
-  return await contract.write.uploadVideo([metadataUri, mintLimit, price], {
+  return await contract.write.uploadVideo([mediaId, mintLimit, price], {
     account,
   });
 };

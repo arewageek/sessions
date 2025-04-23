@@ -49,8 +49,8 @@ contract Sessions is ISessions, ReentrancyGuard {
         _;
     }
 
-    constructor(address _chain){
-        owner = msg.sender;
+    constructor(address _owner, address _chain){
+        owner = _owner;
         projectWallet = msg.sender;
         usdcFee = 7 * 10**5; // 0.7$ worth of base eth
         priceFeed = AggregatorV3Interface(_chain);
@@ -61,20 +61,20 @@ contract Sessions is ISessions, ReentrancyGuard {
     // video upload and metadata
 
     function uploadVideo(
-        string memory _metadataUri,
+        uint256 _mediaId,
         uint256 _mintLimit,
         uint256 _price
     ) external override nonReentrant() {
         videos[videoCount] = Video({
             creator: msg.sender,
-            metadataUri: _metadataUri,
+            mediaId: _mediaId,
             totalMints: 0,
             mintLimit: _mintLimit,
             price: _price,
             likes: 0
         });
 
-        emit VideoUploaded(videoCount, msg.sender, _metadataUri, _mintLimit, _price);
+        emit VideoUploaded(videoCount, msg.sender, _mediaId, _mintLimit, _price);
         videoCount++;
     }
 

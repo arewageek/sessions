@@ -9,12 +9,12 @@ let owner: WalletClient,
   user1: WalletClient,
   user2: WalletClient;
 let sessions: ChainContract<"Sessions">;
-let contractBalance: number;
 const ethUsdPriceFeed = "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70"; // chainlink's price feed CA for ETH/USD on base network
+let metadataUri: string;
 
 // video data
 let video: string,
-  metadataUri: string,
+  mediaId: bigint,
   totalMints: bigint,
   mintLimit: bigint,
   price: bigint,
@@ -28,25 +28,28 @@ describe("Sessions Contract Test", function () {
     [owner, creator, user1, user2] = await hre.viem.getWalletClients();
 
     // state variables
-    metadataUri = "https://example.com/video.mp4";
+    mediaId = 0n;
+    metadataUri = "https://sample.com";
     totalMints = 0n;
     mintLimit = 10n;
     price = parseEther("0.04");
     likes = 0n;
 
     // Deploy the contract and get the instances
-    sessions = await hre.viem.deployContract("Sessions", [ethUsdPriceFeed]);
-
-    datalogs.push({ sessions });
+    sessions = await hre.viem.deployContract("Sessions", [
+      owner.account?.address,
+      ethUsdPriceFeed,
+    ]);
 
     // upload a video
     video = await uploadVideo({
       contract: sessions,
       account: creator.account?.address,
-      metadataUri,
+      mediaId,
       mintLimit,
       price,
     });
+    mediaId++;
 
     // simulate a mint
     await mintVideo({
@@ -69,10 +72,11 @@ describe("Sessions Contract Test", function () {
       await uploadVideo({
         contract: sessions,
         account: creator.account?.address,
-        metadataUri,
+        mediaId,
         mintLimit: 1n,
         price,
       });
+      mediaId++;
     });
 
     describe("Video Upload", function () {
@@ -261,21 +265,21 @@ describe("Sessions Contract Test", function () {
 
       expect(comments[0].text).to.be.equal("Nice video! 0");
       expect(comments[0].commenter.toLowerCase()).to.be.equal(
-        user1.account?.address.toLocaleLowerCase()
+        user1.account?.address.toLowerCase()
       );
 
       expect(comments[4].text).to.be.equal("Nice video! 4");
       expect(comments[4].commenter.toLowerCase()).to.be.equal(
-        user1.account?.address.toLocaleLowerCase()
+        user1.account?.address.toLowerCase()
       );
     });
 
     it("should get a single video", async function () {
       const video = await sessions.read.getVideo([0]);
       expect(video.creator.toLowerCase()).to.be.equal(
-        creator.account?.address.toLocaleLowerCase()
+        creator.account?.address.toLowerCase()
       );
-      expect(video.metadataUri).to.be.equal(metadataUri);
+      expect(video.mediaId).to.be.equal(0n);
       expect(video.totalMints).to.be.equal(totalMints);
       expect(video.mintLimit).to.be.equal(mintLimit);
       expect(video.price).to.be.equal(price);
@@ -287,11 +291,11 @@ describe("Sessions Contract Test", function () {
       expect(comments.length).to.be.equal(10);
       expect(comments[0].text).to.be.equal("Nice video! 0");
       expect(comments[0].commenter.toLowerCase()).to.be.equal(
-        user1.account?.address.toLocaleLowerCase()
+        user1.account?.address.toLowerCase()
       );
       expect(comments[9].text).to.be.equal("Nice video! 9");
       expect(comments[9].commenter.toLowerCase()).to.be.equal(
-        user1.account?.address.toLocaleLowerCase()
+        user1.account?.address.toLowerCase()
       );
     });
   });
@@ -407,8 +411,16 @@ describe("Sessions Contract Test", function () {
       );
       const projectWallet = await sessions.read.projectWallet();
 
-      expect(projectWallet.toLocaleLowerCase()).to.equal(
-        user1.account?.address.toLocaleLowerCase()
+      const account = {
+        caller: owner.account?.address.toLowerCase(),
+        owner: (await sessions.read.owner()).toLowerCase(),
+      };
+
+      console.log({ match: account.owner === account.caller });
+      console.log({ account });
+
+      expect(projectWallet.toLowerCase()).to.equal(
+        user1.account?.address.toLowerCase()
       );
     });
 
