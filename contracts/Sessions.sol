@@ -232,6 +232,8 @@ contract Sessions is ISessions, ReentrancyGuard {
         projectSharePercentage = _projectSharePercentage;
         creatorSharePercentage = _creatorSharePercentage;
         minterSharePercentage = _minterSharePercentage;
+
+        emit RevenueSplitUpdated(_projectSharePercentage, _creatorSharePercentage, _minterSharePercentage);
     }
 
     function setFee(uint _newFee) external onlyOwner{
@@ -279,9 +281,5 @@ contract Sessions is ISessions, ReentrancyGuard {
         // payable(projectWallet).transfer(projectShare);
         payable(_creator).transfer(creatorShare);
         payable(msg.sender).transfer(minterShare);
-    }
-
-    function _withdraw(address _account, uint256 _amount) internal {
-        payable(_account).transfer(_amount);
     }
 }

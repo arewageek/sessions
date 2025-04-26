@@ -54,6 +54,8 @@ interface ISessions {
     event CreatorFollowed(address indexed follower, address indexed creator);
     event CreatorUnfollowed(address indexed unfollower, address indexed creator);
 
+    event RevenueSplitUpdated(uint256 projectSharePercentage, uint256 creatorSharePercentage, uint256 minterSharePercentage);
+
     /**
      * Functions
      */
@@ -75,7 +77,6 @@ interface ISessions {
     function tipCreator( address _creator, uint _amount ) external payable;
 
     // view data
-    function getVideo(uint256 _videoId) external view returns (Video memory);
     function hasLikedVideo(uint256 _videoId, address _user) external view returns (bool);
     function getVideoComments(uint256 _videoId) external view returns (Comment[] memory);
     function getTotalComments(uint256 _videoId) external view returns (uint256);
