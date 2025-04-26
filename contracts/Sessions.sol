@@ -2,7 +2,6 @@
 
 pragma solidity ^0.8.28;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ISessions} from "./interfaces/ISessions.sol";
@@ -50,6 +49,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     }
 
     constructor(address _chain){
+        owner = msg.sender;
         projectWallet = msg.sender;
         usdcFee = 7 * 10**5; // 0.7$ worth of base eth
         priceFeed = AggregatorV3Interface(_chain);
@@ -64,6 +64,9 @@ contract Sessions is ISessions, ReentrancyGuard {
         uint256 _mintLimit,
         uint256 _price
     ) external override nonReentrant() {
+        require(_mintLimit > 0, "Invlid mint limit");
+        require(_price > 0, "Invalid mint price!");
+        
         videos[videoCount] = Video({
             creator: msg.sender,
             mediaId: _mediaId,
@@ -89,13 +92,15 @@ contract Sessions is ISessions, ReentrancyGuard {
 
     // minting
     function mintVideo(uint256 _videoId) external payable override paidExactMintFee(_videoId) videoExists(_videoId) nonReentrant(){
-        Video storage video = videos[_videoId];
+        Video memory video = videos[_videoId];
 
         require(video.totalMints < video.mintLimit, MintLimitReachedError());
 
         video.totalMints ++;
 
         _splitPayment(msg.value, video.creator);
+
+        videos[_videoId] = video;
 
         emit VideoMinted(_videoId, msg.sender, msg.value);
     }
@@ -154,12 +159,14 @@ contract Sessions is ISessions, ReentrancyGuard {
     }
 
     // tipping of creators
-    function tipCreator(address _creator, uint256 _amount) external payable override {
+    function tipCreator(address _creator, uint256 _amount) external payable override nonReentrant() {
         require(_amount > 0, "Invalid tip amount");
+        require(_creator != address(0), "Invalid creator address");
 
-        creators[_creator].totalTipsReceived += msg.value;
+        ( bool success, ) = payable(_creator).call{value: _amount}("");
+        require(success, FailedTransferError());
 
-        payable(_creator).transfer(_amount);
+        creators[_creator].totalTipsReceived += msg.value;  
 
         emit CreatorTipped(msg.sender, _creator, _amount);
     }
@@ -186,7 +193,8 @@ contract Sessions is ISessions, ReentrancyGuard {
             });
         }
         else{
-            creators[msg.sender].metadataUri = _metadataUri;
+            Creator storage creator = creators[msg.sender];
+            creator.metadataUri = _metadataUri;
         }
         emit CreatorProfileUpdated(msg.sender, _metadataUri);
     }
@@ -199,13 +207,15 @@ contract Sessions is ISessions, ReentrancyGuard {
     function followCreator( address _creator ) external nonReentrant() override {
         require(msg.sender != _creator, InvalidFollowingError("Cannot follow self"));
         require(!following[msg.sender][_creator], InvalidFollowingError("Already following"));
+
         following[msg.sender][_creator] = true;
         creators[_creator].totalFollowers ++;
 
         emit CreatorFollowed(msg.sender, _creator);
     }
-    function unfollowCreator( address _creator ) external nonReentrant() {
+    function unfollowCreator( address _creator ) external nonReentrant() override {
         require(following[msg.sender][_creator], InvalidFollowingError("Not following"));
+
         following[msg.sender][_creator] = false;
         creators[_creator].totalFollowers --;
 
@@ -241,9 +251,9 @@ contract Sessions is ISessions, ReentrancyGuard {
     }
 
     function withdraw() external onlyOwner override {
-        payable(projectWallet).transfer(address(this).balance);
+        (bool success, ) = payable(projectWallet).call{value: projectSharePercentage}("");
+        require(success, FailedTransferError());
     }
-
     // admin view functions
     function getBalance() external view override returns (uint256) {
         return address(this).balance;
@@ -271,15 +281,17 @@ contract Sessions is ISessions, ReentrancyGuard {
 
     // --------- internal functions ---------
 
-    function _splitPayment(uint256 _amount, address _creator) internal {
-        require(msg.value == _amount, "Incorrect payment amount");
-
-        // uint256 projectShare = (_amount * projectSharePercentage) / 100;
+    function _splitPayment(uint256 _amount, address _creator) internal nonReentrant() {
+        require(msg.value == _amount, IncorrectPaymentAmountError());
+        
         uint256 creatorShare = (_amount * creatorSharePercentage) / 100;
         uint256 minterShare = (_amount * minterSharePercentage) / 100;
 
-        // payable(projectWallet).transfer(projectShare);
-        payable(_creator).transfer(creatorShare);
-        payable(msg.sender).transfer(minterShare);
+        ( bool creatorSuccess, ) = payable(_creator).call{value: creatorShare}("");
+        require(creatorSuccess, FailedTransferError());
+
+        ( bool minterSuccess, ) = payable(msg.sender).call{value: minterShare}("");
+        require(minterSuccess, FailedTransferError());
+
     }
 }

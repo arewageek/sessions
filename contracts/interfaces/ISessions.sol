@@ -110,9 +110,11 @@ interface ISessions {
      */
     error NotAuthorizedError();
     error IncorrectMintFeeError();
+    error IncorrectPaymentAmountError();
     error MintLimitReachedError();
     error VideoNotExistError();
     error InvalidRevenueSplitRatioError();
     error InvalidVideoEngagementError(string);
     error InvalidFollowingError(string);
+    error FailedTransferError();
 }
