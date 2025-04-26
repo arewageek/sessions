@@ -57,6 +57,7 @@ interface ISessions {
     event RevenueSplitUpdated(uint256 projectSharePercentage, uint256 creatorSharePercentage, uint256 minterSharePercentage);
     event FeeUpdated(uint256 newFee);
     event ProjectWalletUpdated(address newWallet);
+    event OwnershipTransferred(address indexed prevOwner, address indexed newOwner);
 
     /**
      * Functions

@@ -244,7 +244,11 @@ contract Sessions is ISessions, ReentrancyGuard {
     }
     function transferOwnership (address _newOwner) external onlyOwner() {
         require(_newOwner != address(0), InvalidAddressError());
+        
+        address prevOwner = owner;
         owner = _newOwner;
+
+        emit OwnershipTransferred(prevOwner, _newOwner);
     }
 
     function setFee(uint _newFee) external onlyOwner{
