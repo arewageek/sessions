@@ -55,6 +55,8 @@ interface ISessions {
     event CreatorUnfollowed(address indexed unfollower, address indexed creator);
 
     event RevenueSplitUpdated(uint256 projectSharePercentage, uint256 creatorSharePercentage, uint256 minterSharePercentage);
+    event FeeUpdated(uint256 newFee);
+    event ProjectWalletUpdated(address newWallet);
 
     /**
      * Functions
@@ -74,7 +76,7 @@ interface ISessions {
     function commentOnVideo( uint256 _videoId, string memory _commentText ) external;
 
     // tipping of creators
-    function tipCreator( address _creator, uint _amount ) external payable;
+    function tipCreator( address _creator ) external payable;
 
     // view data
     function hasLikedVideo(uint256 _videoId, address _user) external view returns (bool);
@@ -97,6 +99,7 @@ interface ISessions {
     function setRevenueSplit(uint256 _projectShare, uint256 _creatorShare, uint256 _minterShare) external;
     function withdraw() external;
     function setFee(uint _newFee) external;
+    function transferOwnership (address _newOwner) external;
 
     // admin view functions
     function getBalance() external view returns (uint256);
@@ -117,4 +120,5 @@ interface ISessions {
     error InvalidVideoEngagementError(string);
     error InvalidFollowingError(string);
     error FailedTransferError();
+    error InvalidAddressError();
 }

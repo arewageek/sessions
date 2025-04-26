@@ -13,13 +13,11 @@ contract Sessions is ISessions, ReentrancyGuard {
     address public owner;
     address public projectWallet;
     uint256 public videoCount;
-
+    uint256 public usdcFee;
     // mint share percentages
     uint256 public creatorSharePercentage = 60;
     uint256 public projectSharePercentage = 30;
     uint256 public minterSharePercentage = 10;
-
-    uint256 public usdcFee;
 
     AggregatorV3Interface priceFeed;
 
@@ -55,8 +53,6 @@ contract Sessions is ISessions, ReentrancyGuard {
         priceFeed = AggregatorV3Interface(_chain);
     }
 
-    // --------- external functions ---------
-
     // video upload and metadata
 
     function uploadVideo(
@@ -64,7 +60,7 @@ contract Sessions is ISessions, ReentrancyGuard {
         uint256 _mintLimit,
         uint256 _price
     ) external override nonReentrant() {
-        require(_mintLimit > 0, "Invlid mint limit");
+        require(_mintLimit > 0, "Invalid Mint Limit!");
         require(_price > 0, "Invalid mint price!");
         
         videos[videoCount] = Video({
@@ -92,15 +88,13 @@ contract Sessions is ISessions, ReentrancyGuard {
 
     // minting
     function mintVideo(uint256 _videoId) external payable override paidExactMintFee(_videoId) videoExists(_videoId) nonReentrant(){
-        Video memory video = videos[_videoId];
+        Video storage video = videos[_videoId];
 
         require(video.totalMints < video.mintLimit, MintLimitReachedError());
 
-        video.totalMints ++;
-
         _splitPayment(msg.value, video.creator);
 
-        videos[_videoId] = video;
+        video.totalMints ++;
 
         emit VideoMinted(_videoId, msg.sender, msg.value);
     }
@@ -159,16 +153,16 @@ contract Sessions is ISessions, ReentrancyGuard {
     }
 
     // tipping of creators
-    function tipCreator(address _creator, uint256 _amount) external payable override nonReentrant() {
-        require(_amount > 0, "Invalid tip amount");
+    function tipCreator(address _creator) external payable override nonReentrant() {
+        require(msg.value > 0, "Invalid tip amount");
         require(_creator != address(0), "Invalid creator address");
 
-        ( bool success, ) = payable(_creator).call{value: _amount}("");
+        ( bool success, ) = payable(_creator).call{value: msg.value}("");
         require(success, FailedTransferError());
 
         creators[_creator].totalTipsReceived += msg.value;  
 
-        emit CreatorTipped(msg.sender, _creator, _amount);
+        emit CreatorTipped(msg.sender, _creator, msg.value);
     }
 
     // view data
@@ -230,7 +224,10 @@ contract Sessions is ISessions, ReentrancyGuard {
 
    // contract admin functions
     function setProjectWallet( address _projectWallet ) external onlyOwner() override {
+        require(_projectWallet != address(0), InvalidAddressError());
         projectWallet = _projectWallet;
+
+        emit ProjectWalletUpdated(_projectWallet);
     }
     function setRevenueSplit(
         uint256 _projectSharePercentage,
@@ -245,13 +242,19 @@ contract Sessions is ISessions, ReentrancyGuard {
 
         emit RevenueSplitUpdated(_projectSharePercentage, _creatorSharePercentage, _minterSharePercentage);
     }
+    function transferOwnership (address _newOwner) external onlyOwner() {
+        require(_newOwner != address(0), InvalidAddressError());
+        owner = _newOwner;
+    }
 
     function setFee(uint _newFee) external onlyOwner{
+        require(_newFee <= 1e6, "Fee is too high");
         usdcFee = _newFee;
+        emit FeeUpdated(_newFee);
     }
 
     function withdraw() external onlyOwner override {
-        (bool success, ) = payable(projectWallet).call{value: projectSharePercentage}("");
+        (bool success, ) = payable(projectWallet).call{value: address(this).balance}("");
         require(success, FailedTransferError());
     }
     // admin view functions
@@ -281,9 +284,7 @@ contract Sessions is ISessions, ReentrancyGuard {
 
     // --------- internal functions ---------
 
-    function _splitPayment(uint256 _amount, address _creator) internal nonReentrant() {
-        require(msg.value == _amount, IncorrectPaymentAmountError());
-        
+    function _splitPayment(uint256 _amount, address _creator) internal {
         uint256 creatorShare = (_amount * creatorSharePercentage) / 100;
         uint256 minterShare = (_amount * minterSharePercentage) / 100;
 
