@@ -5,11 +5,8 @@ pragma solidity ^0.8.28;
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ISessions} from "./interfaces/ISessions.sol";
-import "hardhat/console.sol";
 
 contract Sessions is ISessions, ReentrancyGuard {
-    // state variables
-
     // project wallet
     address public owner;
     address public pendingOwner;
@@ -17,7 +14,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     uint256 public videoCount;
     uint256 public usdcFee;
     uint256 public mintLimit = 999999;
-    uint256 public maxMintPrice = 999999;
+    uint256 public maxMintPrice = 99000000000000000;
     // mint share percentages
     uint256 public creatorSharePercentage = 60;
     uint256 public projectSharePercentage = 30;
@@ -41,9 +38,9 @@ contract Sessions is ISessions, ReentrancyGuard {
         _;
     }
     modifier paidExactMintFee(uint256 _videoId) {
-        // (uint256 feeAmountInEth) = getFeeAmountInEth();
+        uint fee = getTotalTransferFee(_videoId);
         
-        require(msg.value == videos[_videoId].price, IncorrectMintFeeError());
+        require(msg.value >= fee, IncorrectMintFeeError());
         _;
     }
     modifier videoExists(uint256 _videoId) {
@@ -54,13 +51,8 @@ contract Sessions is ISessions, ReentrancyGuard {
     constructor(address _chain){
         owner = msg.sender;
         projectWallet = msg.sender;
-        usdcFee = 7 * 10**5; // 0.7$ worth of base eth
+        usdcFee = 7; // 0.7$ worth of base eth
         priceFeed = AggregatorV3Interface(_chain);
-    }
-
-    function test() public view returns (uint256) {
-        // console.log(getFeeAmountInEth());
-        return getFeeAmountInEth();
     }
 
     // video upload and metadata
@@ -116,7 +108,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     // engagement
     function likeVideo(uint256 _videoId) external videoExists(_videoId) override nonReentrant() {
         require(! likedBy[_videoId][msg.sender], InvalidVideoEngagementError('like'));
-        
+
         videos[_videoId].likes ++;
         likedBy[_videoId][msg.sender] = true;
 
@@ -299,16 +291,13 @@ contract Sessions is ISessions, ReentrancyGuard {
     }
 
     // fee related functions
-    function getFeeAmountInEth() public view returns (uint256) {
-        (,int ethPriceInUSDC,,uint256 updatedAt,) = priceFeed.latestRoundData();
+    function getEthPrice() public view returns (uint256) {
+        (,int price,,uint256 updatedAt,) = priceFeed.latestRoundData();
 
         require(block.timestamp - updatedAt < 1 hours, "Old price");
-        require(ethPriceInUSDC > 0, "Invalid price from oracle");
+        require(price > 0, "Invalid price from oracle");
 
-        uint ethPrice = uint256(ethPriceInUSDC);
-
-        uint256 feeInEth = (uint256(usdcFee) * 10**18) / ethPrice;
-        return feeInEth;
+        return uint256(price) * 1e10; // chainlink uses 8 decimals
     }
 
     function getSharedRevenue() external view returns (uint256[3] memory){
@@ -317,6 +306,15 @@ contract Sessions is ISessions, ReentrancyGuard {
             creatorSharePercentage,
             minterSharePercentage
         ];
+    }
+
+    function getTotalTransferFee(uint _videoId) public view returns (uint256){
+        uint256 ethPrice = getEthPrice();
+        uint256 baseFeeInEth = videos[_videoId].price;
+        uint256 fixedFeeInEth = (usdcFee * 1e17) / ethPrice;
+        uint256 totalMintFee = baseFeeInEth + fixedFeeInEth;
+
+        return totalMintFee;
     }
 
     // --------- internal functions ---------
