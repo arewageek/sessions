@@ -54,10 +54,13 @@ interface ISessions {
     event CreatorFollowed(address indexed follower, address indexed creator);
     event CreatorUnfollowed(address indexed unfollower, address indexed creator);
 
+    // admin events
     event RevenueSplitUpdated(uint256 projectSharePercentage, uint256 creatorSharePercentage, uint256 minterSharePercentage);
     event FeeUpdated(uint256 newFee);
     event ProjectWalletUpdated(address newWallet);
     event OwnershipTransferred(address indexed prevOwner, address indexed newOwner);
+    event GlobalMintLimitUpdated(uint256 newMintLimit);
+    event MaxMintPriceUpdated(uint newMintPrice);
 
     /**
      * Functions

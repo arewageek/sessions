@@ -5,15 +5,19 @@ pragma solidity ^0.8.28;
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ISessions} from "./interfaces/ISessions.sol";
+import "hardhat/console.sol";
 
 contract Sessions is ISessions, ReentrancyGuard {
     // state variables
 
     // project wallet
     address public owner;
+    address public pendingOwner;
     address public projectWallet;
     uint256 public videoCount;
     uint256 public usdcFee;
+    uint256 public mintLimit = 999999;
+    uint256 public maxMintPrice = 999999;
     // mint share percentages
     uint256 public creatorSharePercentage = 60;
     uint256 public projectSharePercentage = 30;
@@ -37,7 +41,8 @@ contract Sessions is ISessions, ReentrancyGuard {
         _;
     }
     modifier paidExactMintFee(uint256 _videoId) {
-        // uint256 feeAmountInEth = getFeeAmountInEth();
+        // (uint256 feeAmountInEth) = getFeeAmountInEth();
+        
         require(msg.value == videos[_videoId].price, IncorrectMintFeeError());
         _;
     }
@@ -53,6 +58,11 @@ contract Sessions is ISessions, ReentrancyGuard {
         priceFeed = AggregatorV3Interface(_chain);
     }
 
+    function test() public view returns (uint256) {
+        // console.log(getFeeAmountInEth());
+        return getFeeAmountInEth();
+    }
+
     // video upload and metadata
 
     function uploadVideo(
@@ -61,9 +71,11 @@ contract Sessions is ISessions, ReentrancyGuard {
         uint256 _price
     ) external override nonReentrant() {
         require(_mintLimit > 0, "Invalid Mint Limit!");
-        require(_price > 0, "Invalid mint price!");
-        
-        videos[videoCount] = Video({
+        require(_mintLimit < mintLimit, "Mint limit too high");
+        require(_price > 0 && _price <= maxMintPrice, "Invalid mint price!");
+        require(videos[videoCount].mediaId == 0 && videos[videoCount].creator == address(0), "Video already exists!");
+
+        Video memory video = Video({
             creator: msg.sender,
             mediaId: _mediaId,
             totalMints: 0,
@@ -71,6 +83,8 @@ contract Sessions is ISessions, ReentrancyGuard {
             price: _price,
             likes: 0
         });
+
+        videos[videoCount] = video;
 
         emit VideoUploaded(videoCount, msg.sender, _mediaId, _mintLimit, _price);
         videoCount++;
@@ -102,6 +116,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     // engagement
     function likeVideo(uint256 _videoId) external videoExists(_videoId) override nonReentrant() {
         require(! likedBy[_videoId][msg.sender], InvalidVideoEngagementError('like'));
+        
         videos[_videoId].likes ++;
         likedBy[_videoId][msg.sender] = true;
 
@@ -245,10 +260,27 @@ contract Sessions is ISessions, ReentrancyGuard {
     function transferOwnership (address _newOwner) external onlyOwner() {
         require(_newOwner != address(0), InvalidAddressError());
         
-        address prevOwner = owner;
-        owner = _newOwner;
+        pendingOwner = _newOwner;
+    }
+    function acceptOwnership () external {
+        require(msg.sender == pendingOwner, NotAuthorizedError());
 
-        emit OwnershipTransferred(prevOwner, _newOwner);
+        address prevOwner = owner;
+        owner = msg.sender;
+        
+        emit OwnershipTransferred(prevOwner, msg.sender);
+    }
+    function updateGlobalMintLimit (uint _newMintLimit) external onlyOwner() {
+        require(_newMintLimit > 0 && _newMintLimit != mintLimit, "Invalid mint limit");
+        mintLimit = _newMintLimit;
+
+        emit GlobalMintLimitUpdated(_newMintLimit);
+    }
+    function updateMaximumMintPrice (uint _newMaxMintPrice) external onlyOwner() {
+        require(_newMaxMintPrice > 0 && _newMaxMintPrice != maxMintPrice, "Invalid Mint fee");
+        maxMintPrice = _newMaxMintPrice;
+
+        emit MaxMintPriceUpdated(_newMaxMintPrice);
     }
 
     function setFee(uint _newFee) external onlyOwner{
@@ -268,8 +300,9 @@ contract Sessions is ISessions, ReentrancyGuard {
 
     // fee related functions
     function getFeeAmountInEth() public view returns (uint256) {
-        (,int ethPriceInUSDC,,,) = priceFeed.latestRoundData();
+        (,int ethPriceInUSDC,,uint256 updatedAt,) = priceFeed.latestRoundData();
 
+        require(block.timestamp - updatedAt < 1 hours, "Old price");
         require(ethPriceInUSDC > 0, "Invalid price from oracle");
 
         uint ethPrice = uint256(ethPriceInUSDC);
