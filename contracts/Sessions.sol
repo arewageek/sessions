@@ -2,9 +2,10 @@
 
 pragma solidity ^0.8.28;
 
-import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ISessions} from "./interfaces/ISessions.sol";
+import "hardhat/console.sol";
 
 contract Sessions is ISessions, ReentrancyGuard {
     // project wallet
@@ -20,7 +21,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     uint256 public projectSharePercentage = 30;
     uint256 public minterSharePercentage = 10;
 
-    AggregatorV3Interface priceFeed;
+    AggregatorV3Interface internal priceFeed;
 
     mapping(uint256 => Video) public videos;
     mapping(address => Creator) public creators;
@@ -38,7 +39,8 @@ contract Sessions is ISessions, ReentrancyGuard {
         _;
     }
     modifier paidExactMintFee(uint256 _videoId) {
-        uint fee = getTotalTransferFee(_videoId);
+        // uint fee = getTotalTransferFee(_videoId);
+        uint fee = videos[_videoId].price;
         
         require(msg.value >= fee, IncorrectMintFeeError());
         _;
@@ -48,11 +50,11 @@ contract Sessions is ISessions, ReentrancyGuard {
         _;
     }
 
-    constructor(address _chain){
+    constructor(){
         owner = msg.sender;
         projectWallet = msg.sender;
         usdcFee = 7; // 0.7$ worth of base eth
-        priceFeed = AggregatorV3Interface(_chain);
+        priceFeed = AggregatorV3Interface(0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70);
     }
 
     // video upload and metadata
@@ -329,5 +331,20 @@ contract Sessions is ISessions, ReentrancyGuard {
         ( bool minterSuccess, ) = payable(msg.sender).call{value: minterShare}("");
         require(minterSuccess, FailedTransferError());
 
+    }
+
+    // test
+    function getEthPriceFromChainlink () external view returns (
+    uint80 roundId,
+    int256 answer,  // Keep as int256
+    uint256 startedAt,
+    uint256 updatedAt,
+    uint80 answeredInRound
+) {
+        AggregatorV3Interface feed = AggregatorV3Interface(
+            0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70
+        );
+        
+        return feed.latestRoundData();
     }
 }

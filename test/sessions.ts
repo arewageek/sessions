@@ -34,7 +34,7 @@ describe("Sessions Contract Test", function () {
     likes = 0n;
 
     // Deploy the contract and get the instances
-    sessions = await hre.viem.deployContract("Sessions", [ethUsdPriceFeed]);
+    sessions = await hre.viem.deployContract("Sessions", []);
 
     // upload a video
     video = await uploadVideo({
@@ -458,6 +458,13 @@ describe("Sessions Contract Test", function () {
       expect(projectWallet.toLowerCase()).to.equal(
         user1.account?.address.toLowerCase()
       );
+    });
+  });
+
+  describe("Test chainlink oracle", function () {
+    it("Should return eth price and timestamp", async function () {
+      const response = await sessions.read.getEthPriceFromChainlink();
+      console.log({ response });
     });
   });
 });
