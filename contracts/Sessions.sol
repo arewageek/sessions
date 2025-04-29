@@ -14,7 +14,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     uint256 public videoCount;
     uint256 public usdcFee;
     uint256 public mintLimit = 999999;
-    uint256 public maxMintPrice = 99000000000000000;
+    uint256 public maxMintPrice = 99999999999999999;
     // mint share percentages
     uint256 public creatorSharePercentage = 60;
     uint256 public projectSharePercentage = 30;
