@@ -12,7 +12,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     address public owner;
     address public pendingOwner;
     address public projectWallet;
-    uint256 public videoCount;
+    uint256 public videosCount;
     uint256 public usdcFee;
     uint256 public mintLimit = 999999;
     uint256 public maxMintPrice = 99999999999999999;
@@ -31,22 +31,22 @@ contract Sessions is ISessions, ReentrancyGuard {
 
     // ---------------- modifiers ----------------
     modifier onlyOwner() {
-        require(msg.sender == projectWallet, NotAuthorizedError());
+        require(msg.sender == projectWallet, "Not authorized");
         _;
     }
     modifier onlyCreator(uint256 videoId) {
-        require(videos[videoId].creator == msg.sender, NotAuthorizedError());
+        require(videos[videoId].creator == msg.sender, "Not authorized");
         _;
     }
     modifier paidExactMintFee(uint256 _videoId) {
         // uint fee = getTotalTransferFee(_videoId);
         uint fee = videos[_videoId].price;
         
-        require(msg.value >= fee, IncorrectMintFeeError());
+        require(msg.value >= fee, "Incorrect mint fee");
         _;
     }
     modifier videoExists(uint256 _videoId) {
-        require(_videoId < videoCount, VideoNotExistError());
+        require(videos[_videoId].mediaId == _videoId, "Video not exist");
         _;
     }
 
@@ -62,26 +62,27 @@ contract Sessions is ISessions, ReentrancyGuard {
     function uploadVideo(
         uint256 _mediaId,
         uint256 _mintLimit,
-        uint256 _price
+        uint256 _priceInWei
     ) external override nonReentrant() {
         require(_mintLimit > 0, "Invalid Mint Limit!");
         require(_mintLimit < mintLimit, "Mint limit too high");
-        require(_price > 0 && _price <= maxMintPrice, "Invalid mint price!");
-        require(videos[videoCount].mediaId == 0 && videos[videoCount].creator == address(0), "Video already exists!");
+        require(_priceInWei > 0, "Mint price too low!");
+        require(_priceInWei <= maxMintPrice, "Mint price too high");
+        require(videos[_mediaId].mediaId == 0 && videos[_mediaId].creator == address(0), "Video already exists!");
 
         Video memory video = Video({
             creator: msg.sender,
             mediaId: _mediaId,
             totalMints: 0,
             mintLimit: _mintLimit,
-            price: _price,
+            price: _priceInWei,
             likes: 0
         });
 
-        videos[videoCount] = video;
+        videos[_mediaId] = video;
 
-        emit VideoUploaded(videoCount, msg.sender, _mediaId, _mintLimit, _price);
-        videoCount++;
+        emit VideoUploaded(_mediaId, msg.sender, _mediaId, _mintLimit, _priceInWei);
+        videosCount++;
     }
 
     function updateMintLimit( uint256 _videoId, uint256 _newMintLimit ) external onlyCreator(_videoId) override {
@@ -98,7 +99,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     function mintVideo(uint256 _videoId) external payable override paidExactMintFee(_videoId) videoExists(_videoId) nonReentrant(){
         Video storage video = videos[_videoId];
 
-        require(video.totalMints < video.mintLimit, MintLimitReachedError());
+        require(video.totalMints < video.mintLimit, "Mint limit reached");
 
         _splitPayment(msg.value, video.creator);
 
@@ -109,7 +110,7 @@ contract Sessions is ISessions, ReentrancyGuard {
 
     // engagement
     function likeVideo(uint256 _videoId) external videoExists(_videoId) override nonReentrant() {
-        require(! likedBy[_videoId][msg.sender], InvalidVideoEngagementError('like'));
+        require(! likedBy[_videoId][msg.sender], "video already liked");
 
         videos[_videoId].likes ++;
         likedBy[_videoId][msg.sender] = true;
@@ -117,7 +118,7 @@ contract Sessions is ISessions, ReentrancyGuard {
         emit VideoLiked(_videoId, msg.sender);
     }
     function unlikeVideo(uint256 _videoId) external videoExists(_videoId) override nonReentrant() {
-        require(likedBy[_videoId][msg.sender], InvalidVideoEngagementError('unlike'));
+        require(likedBy[_videoId][msg.sender], "Cannot unlike video");
 
         videos[_videoId].likes --;
         likedBy[_videoId][msg.sender] = false;
@@ -167,7 +168,7 @@ contract Sessions is ISessions, ReentrancyGuard {
         require(_creator != address(0), "Invalid creator address");
 
         ( bool success, ) = payable(_creator).call{value: msg.value}("");
-        require(success, FailedTransferError());
+        require(success, "Failed to tip creator");
 
         creators[_creator].totalTipsReceived += msg.value;  
 
@@ -175,9 +176,6 @@ contract Sessions is ISessions, ReentrancyGuard {
     }
 
     // view data
-    function getVideo(uint256 _videoId) external view returns (Video memory video) {
-        return videos[_videoId];
-    }
     function getVideoComments(uint256 _videoId) external view returns (Comment[] memory) {
         return comments[_videoId];
     }
@@ -208,8 +206,8 @@ contract Sessions is ISessions, ReentrancyGuard {
 
     // following and unfollowing
     function followCreator( address _creator ) external nonReentrant() override {
-        require(msg.sender != _creator, InvalidFollowingError("Cannot follow self"));
-        require(!following[msg.sender][_creator], InvalidFollowingError("Already following"));
+        require(msg.sender != _creator, "Cannot follow self");
+        require(!following[msg.sender][_creator], "Already following");
 
         following[msg.sender][_creator] = true;
         creators[_creator].totalFollowers ++;
@@ -217,7 +215,7 @@ contract Sessions is ISessions, ReentrancyGuard {
         emit CreatorFollowed(msg.sender, _creator);
     }
     function unfollowCreator( address _creator ) external nonReentrant() override {
-        require(following[msg.sender][_creator], InvalidFollowingError("Not following"));
+        require(following[msg.sender][_creator], "Not following creator");
 
         following[msg.sender][_creator] = false;
         creators[_creator].totalFollowers --;
@@ -233,7 +231,7 @@ contract Sessions is ISessions, ReentrancyGuard {
 
    // contract admin functions
     function setProjectWallet( address _projectWallet ) external onlyOwner() override {
-        require(_projectWallet != address(0), InvalidAddressError());
+        require(_projectWallet != address(0), "Invalid address");
         projectWallet = _projectWallet;
 
         emit ProjectWalletUpdated(_projectWallet);
@@ -243,7 +241,7 @@ contract Sessions is ISessions, ReentrancyGuard {
         uint256 _creatorSharePercentage,
         uint256 _minterSharePercentage
     ) external onlyOwner() override {
-        require(_projectSharePercentage + _creatorSharePercentage + _minterSharePercentage == 100, InvalidRevenueSplitRatioError());
+        require(_projectSharePercentage + _creatorSharePercentage + _minterSharePercentage == 100, "Invalid split ratio");
 
         projectSharePercentage = _projectSharePercentage;
         creatorSharePercentage = _creatorSharePercentage;
@@ -252,12 +250,12 @@ contract Sessions is ISessions, ReentrancyGuard {
         emit RevenueSplitUpdated(_projectSharePercentage, _creatorSharePercentage, _minterSharePercentage);
     }
     function transferOwnership (address _newOwner) external onlyOwner() {
-        require(_newOwner != address(0), InvalidAddressError());
+        require(_newOwner != address(0), "Invalid address");
         
         pendingOwner = _newOwner;
     }
     function acceptOwnership () external {
-        require(msg.sender == pendingOwner, NotAuthorizedError());
+        require(msg.sender == pendingOwner, "Not authorized");
 
         address prevOwner = owner;
         owner = msg.sender;
@@ -285,7 +283,7 @@ contract Sessions is ISessions, ReentrancyGuard {
 
     function withdraw() external onlyOwner override {
         (bool success, ) = payable(projectWallet).call{value: address(this).balance}("");
-        require(success, FailedTransferError());
+        require(success, "withdraw failed");
     }
     // admin view functions
     function getBalance() external view override returns (uint256) {
@@ -326,25 +324,20 @@ contract Sessions is ISessions, ReentrancyGuard {
         uint256 minterShare = (_amount * minterSharePercentage) / 100;
 
         ( bool creatorSuccess, ) = payable(_creator).call{value: creatorShare}("");
-        require(creatorSuccess, FailedTransferError());
+        require(creatorSuccess, "Creator payment failed");
 
         ( bool minterSuccess, ) = payable(msg.sender).call{value: minterShare}("");
-        require(minterSuccess, FailedTransferError());
+        require(minterSuccess, "Minter payment failed");
 
     }
 
     // test
-    function getEthPriceFromChainlink () external view returns (
-    uint80 roundId,
-    int256 answer,  // Keep as int256
-    uint256 startedAt,
-    uint256 updatedAt,
-    uint80 answeredInRound
-) {
+    function getEthPriceFromChainlink () external view returns (int256) {
         AggregatorV3Interface feed = AggregatorV3Interface(
             0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70
         );
         
-        return feed.latestRoundData();
+        (,int price,,,) = feed.latestRoundData();
+        return price;
     }
 }

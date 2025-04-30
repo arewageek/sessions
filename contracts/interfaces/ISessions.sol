@@ -34,7 +34,7 @@ interface ISessions {
      */
 
     // video upload and metadata
-    event VideoUploaded(uint256 indexed videoId, address indexed creator, uint256 mediaId, uint256 mintLimit, uint256 price);
+    event VideoUploaded(uint256 indexed videoId, address indexed creator, uint256 mediaId, uint256 mintLimit, uint256 priceInWei);
     event MintLimitUpdated(uint256 indexed videoId, uint256 newMintLimit);
     event MintPriceUpdated(uint256 indexed videoId, uint256 newPrice);
 
@@ -67,7 +67,7 @@ interface ISessions {
      */
 
     // video upload and metadata
-    function uploadVideo( uint256 _mediaId, uint256 _mintLimit, uint256 _price ) external;
+    function uploadVideo( uint256 _mediaId, uint256 _mintLimit, uint256 _priceInWei ) external;
     function updateMintLimit( uint256 _videoId, uint256 _newMintLimit ) external;
     function updateMintPrice( uint256 _videoId, uint256 _newPrice ) external;
 
@@ -110,19 +110,4 @@ interface ISessions {
 
     // fee related functions
     function getSharedRevenue() external view returns (uint256[3] memory);
-
-
-    /**
-     * Custom errors
-     */
-    error NotAuthorizedError();
-    error IncorrectMintFeeError();
-    error IncorrectPaymentAmountError();
-    error MintLimitReachedError();
-    error VideoNotExistError();
-    error InvalidRevenueSplitRatioError();
-    error InvalidVideoEngagementError(string);
-    error InvalidFollowingError(string);
-    error FailedTransferError();
-    error InvalidAddressError();
 }
