@@ -15,7 +15,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     uint256 public videosCount;
     uint256 public usdcFee;
     uint256 public mintLimit = 999999;
-    uint256 public maxMintPrice = 99999999999999999;
+    uint256 public maxMintPrice = 9000000000000000000; // 9 ethers
     // mint share percentages
     uint256 public creatorSharePercentage = 60;
     uint256 public projectSharePercentage = 30;
@@ -53,8 +53,8 @@ contract Sessions is ISessions, ReentrancyGuard {
     constructor(){
         owner = msg.sender;
         projectWallet = msg.sender;
-        usdcFee = 7; // 0.7$ worth of base eth
-        priceFeed = AggregatorV3Interface(0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70);
+        usdcFee = 7 * 1e17; // 0.7$ worth of base eth
+        priceFeed = AggregatorV3Interface(0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1);
     }
 
     // video upload and metadata
@@ -290,7 +290,11 @@ contract Sessions is ISessions, ReentrancyGuard {
         return address(this).balance;
     }
 
-    // fee related functions
+    /**
+     * Get price of eth
+     * 
+     * @return uint256
+     */
     function getEthPrice() public view returns (uint256) {
         (,int price,,uint256 updatedAt,) = priceFeed.latestRoundData();
 
@@ -311,7 +315,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     function getTotalTransferFee(uint _videoId) public view returns (uint256){
         uint256 ethPrice = getEthPrice();
         uint256 baseFeeInEth = videos[_videoId].price;
-        uint256 fixedFeeInEth = (usdcFee * 1e17) / ethPrice;
+        uint256 fixedFeeInEth = usdcFee / ethPrice;
         uint256 totalMintFee = baseFeeInEth + fixedFeeInEth;
 
         return totalMintFee;
@@ -329,15 +333,5 @@ contract Sessions is ISessions, ReentrancyGuard {
         ( bool minterSuccess, ) = payable(msg.sender).call{value: minterShare}("");
         require(minterSuccess, "Minter payment failed");
 
-    }
-
-    // test
-    function getEthPriceFromChainlink () external view returns (int256) {
-        AggregatorV3Interface feed = AggregatorV3Interface(
-            0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70
-        );
-        
-        (,int price,,,) = feed.latestRoundData();
-        return price;
     }
 }
