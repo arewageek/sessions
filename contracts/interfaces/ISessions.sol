@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity ^0.8.28;
 
 interface ISessions {
-    /**
-     * Structs
-    */
-
+    // ============ STRUCTS ============
     struct Comment {
         address commenter;
         string text;
@@ -29,32 +25,27 @@ interface ISessions {
         uint256 totalTipsReceived;
     }
 
-    /**
-     * Events
-     */
-
-    // video upload and metadata
+    // ============ EVENTS ============
+    // Video Management
     event VideoUploaded(uint256 indexed videoId, address indexed creator, uint256 mediaId, uint256 mintLimit, uint256 priceInWei);
     event MintLimitUpdated(uint256 indexed videoId, uint256 newMintLimit);
     event MintPriceUpdated(uint256 indexed videoId, uint256 newPrice);
 
-    // minting
+    // Minting
     event VideoMinted(uint256 indexed videoId, address indexed minter, uint256 price);
 
-    // tipping of creators
-    event CreatorTipped(address indexed tippedBy, address indexed creator, uint256 amount);
-
-    // engagement
+    // Social Features
     event VideoLiked(uint256 indexed videoId, address indexed user);
     event VideoUnliked(uint256 indexed videoId, address indexed user);
     event CommentAdded(uint256 indexed videoId, address indexed user, string commentText);
-
-    // creator profile
-    event CreatorProfileUpdated(address indexed creator, string metadataUri);
     event CreatorFollowed(address indexed follower, address indexed creator);
     event CreatorUnfollowed(address indexed unfollower, address indexed creator);
 
-    // admin events
+    // Creator Management
+    event CreatorProfileUpdated(address indexed creator, string metadataUri);
+    event CreatorTipped(address indexed tippedBy, address indexed creator, uint256 amount);
+
+    // Admin
     event RevenueSplitUpdated(uint256 projectSharePercentage, uint256 creatorSharePercentage, uint256 minterSharePercentage);
     event FeeUpdated(uint256 newFee);
     event ProjectWalletUpdated(address newWallet);
@@ -62,52 +53,47 @@ interface ISessions {
     event GlobalMintLimitUpdated(uint256 newMintLimit);
     event MaxMintPriceUpdated(uint newMintPrice);
 
-    /**
-     * Functions
-     */
+    // ============ FUNCTION GROUPS ============
 
-    // video upload and metadata
-    function uploadVideo( uint256 _mediaId, uint256 _mintLimit, uint256 _priceInWei ) external;
-    function updateMintLimit( uint256 _videoId, uint256 _newMintLimit ) external;
-    function updateMintPrice( uint256 _videoId, uint256 _newPrice ) external;
+    // ----- Video Management -----
+    function uploadVideo(uint256 _mediaId, uint256 _mintLimit, uint256 _priceInWei) external;
+    function updateMintLimit(uint256 _videoId, uint256 _newMintLimit) external;
+    function updateMintPrice(uint256 _videoId, uint256 _newPrice) external;
 
-    // minting
+    // ----- Minting -----
     function mintVideo(uint256 _videoId) external payable;
 
-    // engagement
+    // ----- Engagement -----
     function likeVideo(uint256 _videoId) external;
     function unlikeVideo(uint256 _videoId) external;
-    function commentOnVideo( uint256 _videoId, string memory _commentText ) external;
+    function commentOnVideo(uint256 _videoId, string memory _commentText) external;
 
-    // tipping of creators
-    function tipCreator( address _creator ) external payable;
+    // ----- Creator Features -----
+    function updateProfile(string memory _metadataUri) external;
+    function tipCreator(address _creator) external payable;
+    function followCreator(address _creator) external;
+    function unfollowCreator(address _creator) external;
 
-    // view data
+    // ----- View Functions -----
+    // Video Views
     function hasLikedVideo(uint256 _videoId, address _user) external view returns (bool);
     function getVideoComments(uint256 _videoId) external view returns (Comment[] memory);
     function getTotalComments(uint256 _videoId) external view returns (uint256);
     function getVideoCommentsPaginated(uint256 _videoId, uint256 offset, uint256 limit) external view returns (Comment[] memory);
 
-    // creator functions
-    function updateProfile(string memory _metadataUri) external;
-    function getCreatorProfile( address _creator ) external view returns (Creator memory);
+    // Creator Views
+    function getCreatorProfile(address _creator) external view returns (Creator memory);
+    function isFollowing(address _follower, address _creator) external view returns (bool);
+    function getTotalFollowers(address _creator) external view returns (uint256);
 
-    // following and unfollowing
-    function followCreator( address _creator ) external;
-    function unfollowCreator( address _creator ) external;
-    function isFollowing( address _follower, address _creator ) external view returns (bool);
-    function getTotalFollowers( address _creator ) external view returns (uint256);
+    // Admin Views
+    function getBalance() external view returns (uint256);
+    function getSharedRevenue() external view returns (uint256[3] memory);
 
-    // contract admin functions
-    function setProjectWallet( address _projectWallet ) external;
+    // ----- Admin Functions -----
+    function setProjectWallet(address _projectWallet) external;
     function setRevenueSplit(uint256 _projectShare, uint256 _creatorShare, uint256 _minterShare) external;
     function withdraw() external;
     function setFee(uint _newFee) external;
-    function transferOwnership (address _newOwner) external;
-
-    // admin view functions
-    function getBalance() external view returns (uint256);
-
-    // fee related functions
-    function getSharedRevenue() external view returns (uint256[3] memory);
+    function transferOwnership(address _newOwner) external;
 }
