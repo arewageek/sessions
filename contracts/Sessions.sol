@@ -55,8 +55,7 @@ contract Sessions is ISessions, ReentrancyGuard {
 
     // ============ VALIDATION MODIFIERS ============
     modifier paidCorrectMintFee(uint256 _videoId) {
-        uint fee = getTotalMintCost(_videoId);
-        require(msg.value >= fee, "Incorrect mint fee");
+        require(msg.value >= videos[_videoId].price, "Incorrect mint fee");
         _;
     }
 
@@ -74,7 +73,7 @@ contract Sessions is ISessions, ReentrancyGuard {
         priceFeed = AggregatorV3Interface(0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1);
     }
 
-    // video upload and metadata
+    // ============ VIDEO MANAGEMENT ============
 
     /**
      * @notice Upload a new video with minting parameters
@@ -93,7 +92,8 @@ contract Sessions is ISessions, ReentrancyGuard {
         uint256 _mediaId,
         uint256 _mintLimit,
         uint256 _priceInWei
-    ) external override nonReentrant() {
+    ) external override payable nonReentrant() {
+        require(msg.value == getUsdcFeeInEth(), "Invalid upload fee");
         require(_mintLimit > 0, "Invalid Mint Limit!");
         require(_mintLimit <= mintLimit, "Mint limit too high");
         require(_priceInWei > 0, "Mint price too low!");
@@ -153,6 +153,8 @@ contract Sessions is ISessions, ReentrancyGuard {
      * 
      * @param _videoId The ID of the video being minted
      */
+
+    // ============ MINTING ============
     function mintVideo(uint256 _videoId) external payable override paidCorrectMintFee(_videoId) videoExists(_videoId) nonReentrant(){
         Video storage video = videos[_videoId];
 
@@ -165,7 +167,7 @@ contract Sessions is ISessions, ReentrancyGuard {
         emit VideoMinted(_videoId, msg.sender, msg.value);
     }
 
-    // engagement
+    // ============ ENGAGEMENT ============
 
     /**
      * @notice Allows a user to like a video
@@ -230,6 +232,120 @@ contract Sessions is ISessions, ReentrancyGuard {
         emit CommentAdded(_videoId, msg.sender, _commentText);
     }
 
+    // ============ CREATOR FEATURES ============
+    
+    /**
+     * @notice Updates a creator's profile metadata URI
+     * @dev Handles both initial profile creation and updates:
+     *      - Creates new Creator struct for first-time users
+     *      - Updates metadata URI for existing creators
+     *      - Emits CreatorProfileUpdated event in both cases
+     * 
+     * @param _metadataUri IPFS/Arweave URI containing profile metadata (JSON format)
+     */
+    function updateProfile(string memory _metadataUri) external override {
+        if(bytes(creators[msg.sender].metadataUri).length == 0){
+            creators[msg.sender] = Creator({
+                metadataUri: _metadataUri,
+                totalVideos: 0,
+                totalFollowers: 0,
+                totalTipsReceived: 0
+            });
+        }
+        else{
+            Creator storage creator = creators[msg.sender];
+            creator.metadataUri = _metadataUri;
+        }
+        emit CreatorProfileUpdated(msg.sender, _metadataUri);
+    }
+    
+    /**
+     * @notice Allows users to send tips to creators
+     * @dev    - Enforces non-reentrancy protection
+     *         - Validates tip amount (> 0) and creator address
+     *         - Safely transfers ETH to creator
+     *         - Updates creator's lifetime tip counter
+     *         - Emits CreatorTipped event
+     * 
+     * @param _creator The address of the creator to receive the tip
+     * @custom:warning Tips are irreversible
+     */
+    function tipCreator(address _creator) external payable override nonReentrant() {
+        require(msg.value > 0, "Invalid tip amount");
+        require(_creator != address(0), "Invalid creator address");
+
+        ( bool success, ) = payable(_creator).call{value: msg.value}("");
+        require(success, "Failed to tip creator");
+
+        creators[_creator].totalTipsReceived += msg.value;  
+
+        emit CreatorTipped(msg.sender, _creator, msg.value);
+    }
+
+    // following and unfollowing
+    /**
+     * @notice Allows a user to follow a creator
+     * @dev    - Enforces non-reentrancy protection
+     *         - Prevents self-follows
+     *         - Verifies the sender isn't already following
+     *         - Updates follower status and increments creator's follower count
+     *         - Emits CreatorFollowed event
+     * 
+     * @param  _creator The address of the creator to follow
+     */
+    function followCreator( address _creator ) external nonReentrant() override {
+        require(msg.sender != _creator, "Cannot follow self");
+        require(!following[msg.sender][_creator], "Already following");
+
+        following[msg.sender][_creator] = true;
+        creators[_creator].totalFollowers ++;
+
+        emit CreatorFollowed(msg.sender, _creator);
+    }
+    
+    /**
+     * @notice Allows a user to unfollow a creator
+     * @dev    - Enforces non-reentrancy protection
+     *         - Verifies the sender is currently following the creator
+     *         - Updates follower status and decrements creator's follower count
+     *         - Emits CreatorUnfollowed event
+     * 
+     * @param  _creator The address of the creator to unfollow
+     */
+    function unfollowCreator( address _creator ) external nonReentrant() override {
+        require(following[msg.sender][_creator], "Not following creator");
+
+        following[msg.sender][_creator] = false;
+        creators[_creator].totalFollowers --;
+
+        emit CreatorUnfollowed(msg.sender, _creator);
+    }
+
+    // ============ VIDEO VIEW FUNCTIONS ============
+
+    /**
+     * @notice Checks if a user has liked a specific video
+     * 
+     * @param _videoId The ID of the video to check
+     * @param _user The address of the user to verify
+     * 
+     * @return bool True if user has liked the video, false otherwise
+     */
+    function hasLikedVideo(uint256 _videoId, address _user) external view returns (bool) {
+        return likedBy[_videoId][_user];
+    }
+
+    /**
+     * @notice Retrieves all comments for a specific video
+     * 
+     * @param _videoId The ID of the video to query comments for
+     * @return Comment[] Array of Comment structs
+     * @custom:note Returns empty array if video has no comments
+     */
+    function getVideoComments(uint256 _videoId) external view returns (Comment[] memory) {
+        return comments[_videoId];
+    }
+
     /**
      * @notice Returns the total number of comments for a video
      * 
@@ -274,79 +390,7 @@ contract Sessions is ISessions, ReentrancyGuard {
         return result;
     }
 
-    // tipping of creators
-    /**
-     * @notice Allows users to send tips to creators
-     * @dev    - Enforces non-reentrancy protection
-     *         - Validates tip amount (> 0) and creator address
-     *         - Safely transfers ETH to creator
-     *         - Updates creator's lifetime tip counter
-     *         - Emits CreatorTipped event
-     * 
-     * @param _creator The address of the creator to receive the tip
-     * @custom:warning Tips are irreversible
-     */
-    function tipCreator(address _creator) external payable override nonReentrant() {
-        require(msg.value > 0, "Invalid tip amount");
-        require(_creator != address(0), "Invalid creator address");
-
-        ( bool success, ) = payable(_creator).call{value: msg.value}("");
-        require(success, "Failed to tip creator");
-
-        creators[_creator].totalTipsReceived += msg.value;  
-
-        emit CreatorTipped(msg.sender, _creator, msg.value);
-    }
-
-    // view data
-    /**
-     * @notice Retrieves all comments for a specific video
-     * 
-     * @param _videoId The ID of the video to query comments for
-     * @return Comment[] Array of Comment structs
-     * @custom:note Returns empty array if video has no comments
-     */
-    function getVideoComments(uint256 _videoId) external view returns (Comment[] memory) {
-        return comments[_videoId];
-    }
-
-    /**
-     * @notice Checks if a user has liked a specific video
-     * 
-     * @param _videoId The ID of the video to check
-     * @param _user The address of the user to verify
-     * 
-     * @return bool True if user has liked the video, false otherwise
-     */
-    function hasLikedVideo(uint256 _videoId, address _user) external view returns (bool) {
-        return likedBy[_videoId][_user];
-    }
-
-    // creator functions
-    /**
-     * @notice Updates a creator's profile metadata URI
-     * @dev Handles both initial profile creation and updates:
-     *      - Creates new Creator struct for first-time users
-     *      - Updates metadata URI for existing creators
-     *      - Emits CreatorProfileUpdated event in both cases
-     * 
-     * @param _metadataUri IPFS/Arweave URI containing profile metadata (JSON format)
-     */
-    function updateProfile(string memory _metadataUri) external override {
-        if(bytes(creators[msg.sender].metadataUri).length == 0){
-            creators[msg.sender] = Creator({
-                metadataUri: _metadataUri,
-                totalVideos: 0,
-                totalFollowers: 0,
-                totalTipsReceived: 0
-            });
-        }
-        else{
-            Creator storage creator = creators[msg.sender];
-            creator.metadataUri = _metadataUri;
-        }
-        emit CreatorProfileUpdated(msg.sender, _metadataUri);
-    }
+    // ============ CREATOR VIEW FUNCTONS ============
 
     /**
      * @notice Retrieves a creator's full profile data
@@ -357,45 +401,6 @@ contract Sessions is ISessions, ReentrancyGuard {
      */
     function getCreatorProfile( address _creator ) external view returns (Creator memory) {
         return creators[_creator];
-    }
-
-    // following and unfollowing
-    /**
-     * @notice Allows a user to follow a creator
-     * @dev    - Enforces non-reentrancy protection
-     *         - Prevents self-follows
-     *         - Verifies the sender isn't already following
-     *         - Updates follower status and increments creator's follower count
-     *         - Emits CreatorFollowed event
-     * 
-     * @param  _creator The address of the creator to follow
-     */
-    function followCreator( address _creator ) external nonReentrant() override {
-        require(msg.sender != _creator, "Cannot follow self");
-        require(!following[msg.sender][_creator], "Already following");
-
-        following[msg.sender][_creator] = true;
-        creators[_creator].totalFollowers ++;
-
-        emit CreatorFollowed(msg.sender, _creator);
-    }
-    
-    /**
-     * @notice Allows a user to unfollow a creator
-     * @dev    - Enforces non-reentrancy protection
-     *         - Verifies the sender is currently following the creator
-     *         - Updates follower status and decrements creator's follower count
-     *         - Emits CreatorUnfollowed event
-     * 
-     * @param  _creator The address of the creator to unfollow
-     */
-    function unfollowCreator( address _creator ) external nonReentrant() override {
-        require(following[msg.sender][_creator], "Not following creator");
-
-        following[msg.sender][_creator] = false;
-        creators[_creator].totalFollowers --;
-
-        emit CreatorUnfollowed(msg.sender, _creator);
     }
 
     /**
@@ -421,7 +426,59 @@ contract Sessions is ISessions, ReentrancyGuard {
         return creators[_creator].totalFollowers;
     }
 
-   // contract admin functions
+    // ============ ADMIN VIEW FUNCTONS ============
+    
+    /**
+     * @notice Fetch total amount of eth stored in the contract
+     * 
+     * @return uint256 The contract's balance in wei
+     */
+    function getBalance() external view override returns (uint256) {
+        return address(this).balance;
+    }
+
+    /**
+     * @notice returns the shared revenue structure for protocol, creator and minter
+     * 
+     * @return uint256[3] An array with the order [projectSharePercentage, creatorSharedPercentage, minterSharePercentage]
+     */
+    function getSharedRevenue() external view returns (uint256[3] memory){
+        return [
+            projectSharePercentage,
+            creatorSharePercentage,
+            minterSharePercentage
+        ];
+    }
+
+    // ============ OTHER VIEW FUNCTONS ============
+
+    /**
+     * @notice Fetch current price of ethereum using chainlink oracle's price feed
+     * 
+     * @return uint256 The usd value of 1 ethereum converted to uint256
+     */
+    function getEthPrice() public view returns (uint256) {
+        (,int price,,uint256 updatedAt,) = priceFeed.latestRoundData();
+
+        require(block.timestamp - updatedAt < 1 hours, "Old price");
+        require(price > 0, "Invalid price from oracle");
+
+        return uint256(price) * 1e10; // chainlink uses 8 decimals
+    }
+
+    /**
+     * @notice calculates the total fee and amount for minting a video
+     * 
+     * @return uint256 The fee in wei
+     */
+    function getUsdcFeeInEth() public view returns (uint256){ 
+        uint256 ethPrice = getEthPrice();
+        uint256 fixedFeeInEth = usdcFee * 1e30 / ethPrice;
+
+        return fixedFeeInEth;
+    }
+
+   // ============ ADMIN FUNCTONS ============
 
     /**
      * @notice Updates the project's wallet address for receiving revenue shares
@@ -537,59 +594,9 @@ contract Sessions is ISessions, ReentrancyGuard {
         (bool success, ) = payable(projectWallet).call{value: address(this).balance}("");
         require(success, "withdraw failed");
     }
-    
-    /**
-     * @notice Fetch total amount of eth stored in the contract
-     * 
-     * @return uint256 The contract's balance in wei
-     */
-    function getBalance() external view override returns (uint256) {
-        return address(this).balance;
-    }
 
-    /**
-     * @notice Fetch current price of ethereum using chainlink oracle's price feed
-     * 
-     * @return uint256 The usd value of 1 ethereum converted to uint256
-     */
-    function getEthPrice() public view returns (uint256) {
-        (,int price,,uint256 updatedAt,) = priceFeed.latestRoundData();
+    // ============ INTERNAL FUNCTONS ============
 
-        require(block.timestamp - updatedAt < 1 hours, "Old price");
-        require(price > 0, "Invalid price from oracle");
-
-        return uint256(price) * 1e10; // chainlink uses 8 decimals
-    }
-
-    /**
-     * @notice returns the shared revenue structure for protocol, creator and minter
-     * 
-     * @return uint256[3] An array with the order [projectSharePercentage, creatorSharedPercentage, minterSharePercentage]
-     */
-    function getSharedRevenue() external view returns (uint256[3] memory){
-        return [
-            projectSharePercentage,
-            creatorSharePercentage,
-            minterSharePercentage
-        ];
-    }
-
-    /**
-     * @notice calculates the total fee and amount for minting a video
-     * 
-     * @param _videoId The media or video id
-     * @return uint256 The fee in wei
-     */
-    function getTotalMintCost(uint _videoId) public view returns (uint256){ 
-        uint256 ethPrice = getEthPrice();
-        uint256 baseFeeInEth = videos[_videoId].price;
-        uint256 fixedFeeInEth = usdcFee * 1e30 / ethPrice;
-        uint256 totalMintFee = baseFeeInEth + fixedFeeInEth;
-
-        return totalMintFee;
-    }
-
-    // --------- internal functions ---------
     /**
      * @notice splits a payment between protocol, creator, and minter
      * 

@@ -56,7 +56,7 @@ interface ISessions {
     // ============ FUNCTION GROUPS ============
 
     // ----- Video Management -----
-    function uploadVideo(uint256 _mediaId, uint256 _mintLimit, uint256 _priceInWei) external;
+    function uploadVideo(uint256 _mediaId, uint256 _mintLimit, uint256 _priceInWei) external payable;
     function updateMintLimit(uint256 _videoId, uint256 _newMintLimit) external;
     function updateMintPrice(uint256 _videoId, uint256 _newPrice) external;
 
