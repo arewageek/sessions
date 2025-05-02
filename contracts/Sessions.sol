@@ -93,7 +93,11 @@ contract Sessions is ISessions, ReentrancyGuard {
         uint256 _mintLimit,
         uint256 _priceInWei
     ) external override payable nonReentrant() {
-        require(msg.value == getUsdcFeeInEth(), "Invalid upload fee");
+        uint256 minUsdcFeeInEth = getUsdcFeeInEth();
+        
+        // Validate payment and parameters
+        require((msg.value * 1e18) >= (minUsdcFeeInEth), "Insufficient upload fee");
+
         require(_mintLimit > 0, "Invalid Mint Limit!");
         require(_mintLimit <= mintLimit, "Mint limit too high");
         require(_priceInWei > 0, "Mint price too low!");
