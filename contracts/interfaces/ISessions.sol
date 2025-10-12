@@ -11,11 +11,14 @@ interface ISessions {
 
     struct Video {
         address creator;
-        uint256 mediaId;
+        string ipfsHash;
         uint256 totalMints;
         uint256 mintLimit;
         uint256 price;
         uint256 likes;
+        bool isFanit;
+        uint256 originalVideoId;
+        address fan;
     }
 
     struct Creator {
@@ -27,9 +30,27 @@ interface ISessions {
 
     // ============ EVENTS ============
     // Video Management
-    event VideoUploaded(uint256 indexed videoId, address indexed creator, uint256 mediaId, uint256 mintLimit, uint256 priceInWei);
+    event VideoUploaded(
+        uint256 indexed videoId,
+        address indexed creator,
+        string ipfsHash,
+        uint256 mintLimit,
+        uint256 priceInWei
+    );
     event MintLimitUpdated(uint256 indexed videoId, uint256 newMintLimit);
     event MintPriceUpdated(uint256 indexed videoId, uint256 newPrice);
+
+    // Fanit Events
+    event VideoFannited(
+        uint256 indexed originalVideoId,
+        uint256 indexed fannitVideoId,
+        address indexed fan
+    );
+    event FanitMinted(
+        uint256 indexed fannitVideoId,
+        address indexed minter,
+        uint256 price
+    );
 
     // Minting
     event VideoMinted(uint256 indexed videoId, address indexed minter, uint256 price);
@@ -43,25 +64,47 @@ interface ISessions {
 
     // Creator Management
     event CreatorProfileUpdated(address indexed creator, string metadataUri);
-    event CreatorTipped(address indexed tippedBy, address indexed creator, uint256 amount);
+    event CreatorTipped(
+        address indexed tippedBy,
+        address indexed creator,
+        uint256 amount
+    );
 
     // Admin
-    event RevenueSplitUpdated(uint256 projectSharePercentage, uint256 creatorSharePercentage, uint256 minterSharePercentage);
+    event RevenueSplitUpdated(
+        uint256 projectSharePercentage,
+        uint256 creatorSharePercentage,
+        uint256 minterSharePercentage
+    );
+    event FanitRevenueSplitUpdated(
+        uint256 projectSharePercentage,
+        uint256 creatorSharePercentage,
+        uint256 fanSharePercentage,
+        uint256 minterSharePercentage
+    );
     event FeeUpdated(uint256 newFee);
     event ProjectWalletUpdated(address newWallet);
     event OwnershipTransferred(address indexed prevOwner, address indexed newOwner);
     event GlobalMintLimitUpdated(uint256 newMintLimit);
     event MaxMintPriceUpdated(uint newMintPrice);
+    event FanitSettingsUpdated(uint256 fannitMintLimit);
 
     // ============ FUNCTION GROUPS ============
 
     // ----- Video Management -----
-    function uploadVideo(uint256 _mediaId, uint256 _mintLimit, uint256 _priceInWei) external payable;
+    function uploadVideo(
+        string memory _ipfsHash,
+        uint256 _mintLimit,
+        uint256 _priceInWei
+    ) external payable;
+    function fannitVideo(uint256 _originalVideoId) external;
+
     function updateMintLimit(uint256 _videoId, uint256 _newMintLimit) external;
     function updateMintPrice(uint256 _videoId, uint256 _newPrice) external;
 
     // ----- Minting -----
     function mintVideo(uint256 _videoId) external payable;
+    function mintFannit(uint256 _fannitVideoId) external payable;
 
     // ----- Engagement -----
     function likeVideo(uint256 _videoId) external;
@@ -89,10 +132,27 @@ interface ISessions {
     // Admin Views
     function getBalance() external view returns (uint256);
     function getSharedRevenue() external view returns (uint256[3] memory);
+    function getFanitSharedRevenue() external view returns (uint256[4] memory);
+
+    // Fanit Views
+    function getFannitsOfVideo(uint256 _videoId) external view returns (uint256[] memory);
+    function hasFannited(address _user, uint256 _originalVideoId) external view returns (bool);
+    function getFanitMintLimit() external view returns (uint256);
 
     // ----- Admin Functions -----
     function setProjectWallet(address _projectWallet) external;
-    function setRevenueSplit(uint256 _projectShare, uint256 _creatorShare, uint256 _minterShare) external;
+    function setRevenueSplit(
+        uint256 _projectShare,
+        uint256 _creatorShare,
+        uint256 _minterShare
+    ) external;
+    function setFanitRevenueSplit(
+        uint256 _projectShare,
+        uint256 _creatorShare,
+        uint256 _fanShare,
+        uint256 _minterShare
+    ) external;
+    function setFanitMintLimit(uint256 _limit) external;
     function withdraw() external;
     function setFee(uint _newFee) external;
     function transferOwnership(address _newOwner) external;
