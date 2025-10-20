@@ -6,7 +6,14 @@ import "@nomicfoundation/hardhat-verify";
 dotenv.config();
 
 const config: HardhatUserConfig = {
-  solidity: "0.8.28",
+  solidity: {
+    compilers: [
+      {
+        version: "0.8.28",
+        settings: { optimizer: { enabled: true, runs: 200 } },
+      },
+    ],
+  },
   networks: {
     testnet: {
       // base sepolia
@@ -25,19 +32,14 @@ const config: HardhatUserConfig = {
     },
   },
   etherscan: {
-    apiKey: {
-      testnet: process.env.BASESCAN_API_KEY!,
-    },
-    customChains: [
-      {
-        network: "testnet",
-        chainId: 84532,
-        urls: {
-          apiURL: "https://api-sepolia.basescan.org/api",
-          browserURL: "https://sepolia.basescan.org/",
-        },
-      },
-    ],
+    apiKey: process.env.ETHERSCAN_V2_API_KEY!,
+    enabled: true,
+  },
+  blockscout: {
+    enabled: false,
+  },
+  sourcify: {
+    enabled: true,
   },
 };
 
