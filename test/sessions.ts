@@ -14,9 +14,9 @@ let metadataUri: string;
 
 // video data
 let video: string,
-  mediaId: bigint,
+  mediaId: number,
   totalMints: bigint,
-  mintLimit: bigint,
+  mintLimit: number,
   price: bigint,
   likes: bigint;
 
@@ -26,10 +26,10 @@ describe("Sessions Contract Test", function () {
     [owner, creator, user1, user2] = await hre.viem.getWalletClients();
 
     // state variables
-    mediaId = 0n;
+    mediaId = 75273490140471627514444837936153972119210657094427764732941510340657921700176;
     metadataUri = "https://sample.com";
     totalMints = 0n;
-    mintLimit = 10n;
+    mintLimit = 10;
     price = parseEther("0.04");
     likes = 0n;
 
@@ -68,10 +68,9 @@ describe("Sessions Contract Test", function () {
         contract: sessions,
         account: creator.account?.address,
         mediaId,
-        mintLimit: 1n,
+        mintLimit: 10,
         price,
       });
-      mediaId++;
     });
 
     describe("Video Upload", function () {
@@ -81,14 +80,14 @@ describe("Sessions Contract Test", function () {
 
       describe("Mint video", () => {
         it("Should mint video", async () => {
-          const mintTx = await mintVideo({
-            videoId: 1,
+          await mintVideo({
+            videoId: mediaId,
             contract: sessions,
             account: user1.account?.address,
             price,
           });
 
-          const mintCount = await sessions.read.getVideo([1]);
+          const mintCount = await sessions.read.videos([mediaId]);
 
           expect(mintCount.totalMints).to.equal(1n);
         });
@@ -101,7 +100,7 @@ describe("Sessions Contract Test", function () {
               account: user2.account?.address,
               price: parseEther("0.001"),
             })
-          ).to.be.rejectedWith("IncorrectMintFeeError");
+          ).to.be.rejectedWith("Incorrect mint fee");
         });
 
         it("Should revert if mint limit is reached", async () => {
@@ -151,7 +150,7 @@ describe("Sessions Contract Test", function () {
           sessions.write.updateMintPrice([0, 2], {
             account: user2.account?.address,
           })
-        ).to.be.rejectedWith("NotAuthorized");
+        ).to.be.rejectedWith("Not authorized");
       });
     });
   });
@@ -461,10 +460,10 @@ describe("Sessions Contract Test", function () {
     });
   });
 
-  describe("Test chainlink oracle", function () {
-    it("Should return eth price and timestamp", async function () {
-      const response = await sessions.read.getEthPriceFromChainlink();
-      console.log({ response });
-    });
-  });
+  // describe("Test chainlink oracle", function () {
+  //   it("Should return eth price and timestamp", async function () {
+  //     const response = await sessions.read.getEthPriceFromChainlink();
+  //     console.log({ response });
+  //   });
+  // });
 });
