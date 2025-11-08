@@ -16,8 +16,9 @@ interface ISessions {
         uint256 mintLimit;
         uint256 price;
         uint256 likes;
-        bool isFanit;
+        bool isFannit;
         uint256 originalVideoId;
+        uint256 parentVideoId;
         address fan;
     }
 
@@ -26,6 +27,13 @@ interface ISessions {
         uint256 totalVideos;
         uint256 totalFollowers;
         uint256 totalTipsReceived;
+    }
+
+    struct RevenueShare {
+        uint256 platform;
+        uint256 creator;
+        uint256 fan;
+        uint256 minter;
     }
 
     // ============ EVENTS ============
@@ -40,13 +48,15 @@ interface ISessions {
     event MintLimitUpdated(uint256 indexed videoId, uint256 newMintLimit);
     event MintPriceUpdated(uint256 indexed videoId, uint256 newPrice);
 
-    // Fanit Events
-    event VideoFannited(
+    // Fannit Events
+    event Videofannited(
         uint256 indexed originalVideoId,
         uint256 indexed fannitVideoId,
         address indexed fan
     );
-    event FanitMinted(
+    
+    
+    event FannitMinted(
         uint256 indexed fannitVideoId,
         address indexed minter,
         uint256 price
@@ -55,7 +65,7 @@ interface ISessions {
     // Minting
     event VideoMinted(uint256 indexed videoId, address indexed minter, uint256 price);
 
-    // Social Features
+    // Social Featuresc
     event VideoLiked(uint256 indexed videoId, address indexed user);
     event VideoUnliked(uint256 indexed videoId, address indexed user);
     event CommentAdded(uint256 indexed videoId, address indexed user, string commentText);
@@ -76,7 +86,7 @@ interface ISessions {
         uint256 creatorSharePercentage,
         uint256 minterSharePercentage
     );
-    event FanitRevenueSplitUpdated(
+    event FannitRevenueSplitUpdated(
         uint256 projectSharePercentage,
         uint256 creatorSharePercentage,
         uint256 fanSharePercentage,
@@ -87,7 +97,7 @@ interface ISessions {
     event OwnershipTransferred(address indexed prevOwner, address indexed newOwner);
     event GlobalMintLimitUpdated(uint256 newMintLimit);
     event MaxMintPriceUpdated(uint newMintPrice);
-    event FanitSettingsUpdated(uint256 fannitMintLimit);
+    event FannitSettingsUpdated(uint256 fannitMintLimit);
 
     // ============ FUNCTION GROUPS ============
 
@@ -104,7 +114,7 @@ interface ISessions {
 
     // ----- Minting -----
     function mintVideo(uint256 _videoId) external payable;
-    function mintFannit(uint256 _fannitVideoId) external payable;
+    function mintfannit(uint256 _fannitVideoId) external payable;
 
     // ----- Engagement -----
     function likeVideo(uint256 _videoId) external;
@@ -132,12 +142,12 @@ interface ISessions {
     // Admin Views
     function getBalance() external view returns (uint256);
     function getSharedRevenue() external view returns (uint256[3] memory);
-    function getFanitSharedRevenue() external view returns (uint256[4] memory);
+    function getFannitSharedRevenue() external view returns (uint256[4] memory);
 
-    // Fanit Views
-    function getFannitsOfVideo(uint256 _videoId) external view returns (uint256[] memory);
-    function hasFannited(address _user, uint256 _originalVideoId) external view returns (bool);
-    function getFanitMintLimit() external view returns (uint256);
+    // Fannit Views
+    function getfannitsOfVideo(uint256 _videoId) external view returns (uint256[] memory);
+    function hasfannited(address _user, uint256 _originalVideoId) external view returns (bool);
+    function getFannitMintLimit() external view returns (uint256);
 
     // ----- Admin Functions -----
     function setProjectWallet(address _projectWallet) external;
@@ -146,13 +156,13 @@ interface ISessions {
         uint256 _creatorShare,
         uint256 _minterShare
     ) external;
-    function setFanitRevenueSplit(
+    function setFannitRevenueSplit(
         uint256 _projectShare,
         uint256 _creatorShare,
         uint256 _fanShare,
         uint256 _minterShare
     ) external;
-    function setFanitMintLimit(uint256 _limit) external;
+    function setFannitMintLimit(uint256 _limit) external;
     function withdraw() external;
     function setFee(uint _newFee) external;
     function transferOwnership(address _newOwner) external;
