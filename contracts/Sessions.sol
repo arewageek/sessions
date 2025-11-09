@@ -18,9 +18,9 @@ contract Sessions is ISessions, ReentrancyGuard {
     uint256 public maxMintPrice = 1 ether; // 1000000000000000000
 
     /// @notice Revenue sharing percentages
-    RevenueShare videoShare = RevenueShare(60, 30, 0, 10);
-    RevenueShare fannitShare = RevenueShare(60, 20, 10, 10);
-    RevenueShare refannitShare = RevenueShare(60, 20, 10, 10);
+    RevenueShare videoShare = RevenueShare(60, 30, 0, 0, 10); // creator => 60, platform => 30, fan-1 => 0, fan-2 => 0, minter =>10
+    RevenueShare fannitShare = RevenueShare(60, 20, 10, 0, 10); // creator => 60, platform =>20, fan-1=>10, fan-2=>0, minter => 10
+    RevenueShare refannitShare = RevenueShare(50, 20, 10, 10, 10); // creator => 50, platform => 20, fan-1 => 10, fan-2 => 10, minter => 10
 
     uint256 public fannitMintLimit = 10;
 
@@ -201,7 +201,6 @@ contract Sessions is ISessions, ReentrancyGuard {
         bool success = _handleMint(_videoId, videoDepth);
 
         hasfannited[msg.sender][_videoId] = true;
-        fannitsOfVideo[_videoId].push(video.totalMints);
 
         emit FannitMinted(_videoId, msg.sender, msg.value);
     }
@@ -506,45 +505,23 @@ contract Sessions is ISessions, ReentrancyGuard {
      *
      * @return uint256[3] An array with the order [projectSharePercentage, creatorSharedPercentage, minterSharePercentage]
      */
-    function getSharedRevenue()
+    function getSharedRevenue(uint8 _type)
         external
         view
         override
-        returns (uint256[3] memory)
+        returns (RevenueShare memory)
     {
-        return [
-            projectSharePercentage,
-            creatorSharePercentage,
-            minterSharePercentage
-        ];
-    }
+        require(_type < 3, "Invalid type");
 
-    function getFannitSharedRevenue()
-        external
-        view
-        override
-        returns (uint256[4] memory)
-    {
-        return [
-            fannitProjectSharePercentage,
-            fannitCreatorSharePercentage,
-            fannitFanSharePercentage,
-            fannitMinterSharePercentage
-        ];
-    }
-
-    function getRefannitSharedRevenue()
-        external
-        view
-        override
-        returns (uint256[4] memory)
-    {
-        return [
-            refannitProjectSharePercentage,
-            refannitCreatorSharePercentage,
-            refannitFanSharePercentage,
-            refannitMinterSharePercentage
-        ];
+        if(_type == 0){
+            return videoShare;
+        }
+        else if(_type == 1){
+            return fannitShare;
+        }
+        else {
+            return refannitShare;
+        }
     }
 
     // Fannit Views
@@ -585,78 +562,41 @@ contract Sessions is ISessions, ReentrancyGuard {
      * @param _minterShare Minter's share (0-100, sum must equal 100 with others)
      */
     function setRevenueSplit(
-        uint256 _projectShare,
-        uint256 _creatorShare,
-        uint256 _minterShare
+        uint8 _type,
+        uint256 _creator,
+        uint256 _platform,
+        uint256 _fan,
+        uint256 _fan2,
+        uint256 _minter
     ) external override onlyOwner {
         require(
-            _projectShare + _creatorShare + _minterShare == 100,
-            "Invalid split ratio"
+            _creator + _platform + _fan + _fan2 + _minter == 100,
+            "Percentages must sum to 100"
         );
 
-        projectSharePercentage = _projectShare;
-        creatorSharePercentage = _creatorShare;
-        minterSharePercentage = _minterShare;
-
-        emit RevenueSplitUpdated(_projectShare, _creatorShare, _minterShare);
-    }
-
-    /**
-     * @notice Configures the revenue distribution percentages between project, creator and minter
-     * @dev Can only be called by contract owner. Requires sum of percentages to equal 100.
-     *      Updates storage and emits `RevenueSplitUpdated` event on success.
-     *
-     * @param _projectShare Project's share (0-100, sum must equal 100 with others)
-     * @param _creatorShare Creator's share (0-100, sum must equal 100 with others)
-     * @param _fanShare Fan's share (0-100, sum must equal 100 with others)
-     * @param _minterShare Minter's share (0-100, sum must equal 100 with others)
-     */
-    function setFannitRevenueSplit(
-        uint256 _projectShare,
-        uint256 _creatorShare,
-        uint256 _fanShare,
-        uint256 _minterShare
-    ) external override onlyOwner {
-        require(
-            _projectShare + _creatorShare + _fanShare + _minterShare == 100,
-            "Invalid split ratio"
-        );
-
-        fannitProjectSharePercentage = _projectShare;
-        fannitCreatorSharePercentage = _creatorShare;
-        fannitFanSharePercentage = _fanShare;
-        fannitMinterSharePercentage = _minterShare;
-
-        emit FannitRevenueSplitUpdated(
-            _projectShare,
-            _creatorShare,
-            _fanShare,
-            _minterShare
-        );
-    }
-
-    function setRefannitRevenueSplit(
-        uint256 _projectShare,
-        uint256 _creatorShare,
-        uint256 _fanShare,
-        uint256 _minterShare
-    ) external override onlyOwner {
-        require(
-            _projectShare + _creatorShare + _fanShare + _minterShare == 100,
-            "Invalid split ratio"
-        );
-
-        refannitProjectSharePercentage = _projectShare;
-        refannitCreatorSharePercentage = _creatorShare;
-        refannitFanSharePercentage = _fanShare;
-        refannitMinterSharePercentage = _minterShare;
-
-        emit RefannitRevenueSplitUpdated(
-            _projectShare,
-            _creatorShare,
-            _fanShare,
-            _minterShare
-        );
+        if (_type == 0) {
+            videoShare = RevenueShare(_creator, _platform, _fan, _fan2, _minter);
+            emit RevenueSplitUpdated(_platform, _creator, _minter);
+        } else if (_type == 1) {
+            fannitShare = RevenueShare(_creator, _platform, _fan, _fan2, _minter);
+            emit FannitRevenueSplitUpdated(
+                _platform,
+                _creator,
+                _fan,
+                _minter
+            );
+        } else if (_type == 2) {
+            refannitShare = RevenueShare(_creator, _platform, _fan, _fan2, _minter);
+            emit RefannitRevenueSplitUpdated(
+                _platform,
+                _creator,
+                _fan,
+                _fan2,
+                _minter
+            );
+        } else {
+            revert("Invalid type");
+        }
     }
 
     function setFannitMintLimit(uint256 _limit) external override onlyOwner {
@@ -750,7 +690,10 @@ contract Sessions is ISessions, ReentrancyGuard {
      * @notice Withdraw all tokens from contract to project wallet (callable only by owner)
      */
     function withdraw() external override onlyOwner {
-        _safeTransfer((projectWallet, address(this).balance), "withdrawal failed");
+        _safeTransfer(
+            (projectWallet, address(this).balance),
+            "withdrawal failed"
+        );
     }
 
     // ============ ORACLE / FEE HELPERS ============
@@ -885,8 +828,11 @@ contract Sessions is ISessions, ReentrancyGuard {
             likes: 0,
             isFannit: true,
             parentVideoId: _parentVideoId,
-            originalVideoId: video.isFannit ? video.originalVideoId : _parentVideoId,
-            fan: _fan
+            originalVideoId: video.isFannit
+                ? video.originalVideoId
+                : _parentVideoId,
+            fan: _fan,
+            fan2: video.isFannit ? video.fan : address(0)
         });
 
         fannitsOfVideo[_originalVideoId].push(fannitId);
@@ -918,7 +864,10 @@ contract Sessions is ISessions, ReentrancyGuard {
         _safeTransfer(_account, shareAmount, "Payment failed");
     }
 
-    function _handleMint(uint256 _videoId, uint8 _videoDepth) internal returns (bool) {
+    function _handleMint(
+        uint256 _videoId,
+        uint8 _videoDepth
+    ) internal returns (bool) {
         Video storage video = videos[_videoId];
 
         require(video.isFannit == (_videoDepth > 0), "Wrong video type");
@@ -927,6 +876,7 @@ contract Sessions is ISessions, ReentrancyGuard {
         uint256 creatorShare;
         uint256 minterDiscount;
         uint256 fanShare;
+        uint256 fan2Share;
 
         RevenueShare memory _videoShare = videoShare;
         RevenueShare memory _fannitShare = fannitShare;
@@ -935,25 +885,28 @@ contract Sessions is ISessions, ReentrancyGuard {
         uint256 price;
         address = creator;
 
-        if(!_isfannit){
+        if (!_isfannit) {
             creatorShare = _videoShare.creator;
             minterDiscount = _videoShare.minter;
             creator = video.creator;
-        }
-        else if(_videoDepth == 1){
+        } else if (_videoDepth == 1) {
             creatorShare = _fannitShare.creator;
             minterDiscount = _fannitShare.minter;
-            fanShare = _fannitShare.fan
-        }
-        else if(_videoDepth == 2){
+            fanShare = _fannitShare.fan;
+        } else if (_videoDepth == 2) {
             creatorShare = _refannitShare.creator;
             minterDiscount = _refannitShare.minter;
-            fannitShare = _refannitShare.fan;
+            fanShare = _refannitShare.fan;
+            fan2Share = _refannitShare.fan2;
         }
 
-        require(msg.value >= price - ((price * minterDiscount) / 100), "Insufficient funds!");
+        require(
+            msg.value >= price - ((price * minterDiscount) / 100),
+            "Insufficient funds!"
+        );
 
         _payShare(video.creator, _totalRevenue, creatorShare);
+        fan2Share > 0 && _payShare(video.fan2, _totalRevenue, fan2Share);
         fanShare > 0 && _payShare(video.fan, _totalRevenue, fanShare);
 
         video.totalMints++;

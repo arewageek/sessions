@@ -20,6 +20,7 @@ interface ISessions {
         uint256 originalVideoId;
         uint256 parentVideoId;
         address fan;
+        address fan2;
     }
 
     struct Creator {
@@ -30,9 +31,10 @@ interface ISessions {
     }
 
     struct RevenueShare {
-        uint256 platform;
         uint256 creator;
+        uint256 platform;
         uint256 fan;
+        uint256 fan2;
         uint256 minter;
     }
 
@@ -110,7 +112,10 @@ interface ISessions {
     function fannitVideo(uint256 _originalVideoId) external;
 
     function updateMintLimit(uint256 _videoId, uint256 _newMintLimit) external;
+    function updateGlobalMintLimit(uint256 _newLimit) external;
+
     function updateMintPrice(uint256 _videoId, uint256 _newPrice) external;
+    function updateMaximumMintPrice(uint256 _newMaxMintPrice) external;
 
     // ----- Minting -----
     function mintVideo(uint256 _videoId) external payable;
@@ -141,29 +146,25 @@ interface ISessions {
 
     // Admin Views
     function getBalance() external view returns (uint256);
-    function getSharedRevenue() external view returns (uint256[3] memory);
-    function getFannitSharedRevenue() external view returns (uint256[4] memory);
+    function getSharedRevenue(uint8 _type) external view returns (uint256[3] memory);
 
     // Fannit Views
     function getfannitsOfVideo(uint256 _videoId) external view returns (uint256[] memory);
-    function hasfannited(address _user, uint256 _originalVideoId) external view returns (bool);
     function getFannitMintLimit() external view returns (uint256);
 
     // ----- Admin Functions -----
     function setProjectWallet(address _projectWallet) external;
     function setRevenueSplit(
-        uint256 _projectShare,
-        uint256 _creatorShare,
-        uint256 _minterShare
-    ) external;
-    function setFannitRevenueSplit(
-        uint256 _projectShare,
-        uint256 _creatorShare,
-        uint256 _fanShare,
-        uint256 _minterShare
+        uint8 _type,
+        uint256 _creator,
+        uint256 _platform,
+        uint256 _fan,
+        uint256 _fan2,
+        uint256 _minter
     ) external;
     function setFannitMintLimit(uint256 _limit) external;
     function withdraw() external;
     function setFee(uint _newFee) external;
     function transferOwnership(address _newOwner) external;
+    function acceptOwnerShip() external;
 }
