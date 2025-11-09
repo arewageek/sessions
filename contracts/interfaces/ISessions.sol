@@ -51,13 +51,12 @@ interface ISessions {
     event MintPriceUpdated(uint256 indexed videoId, uint256 newPrice);
 
     // Fannit Events
-    event Videofannited(
+    event VideoFannited(
         uint256 indexed originalVideoId,
         uint256 indexed fannitVideoId,
         address indexed fan
     );
-    
-    
+
     event FannitMinted(
         uint256 indexed fannitVideoId,
         address indexed minter,
@@ -65,14 +64,25 @@ interface ISessions {
     );
 
     // Minting
-    event VideoMinted(uint256 indexed videoId, address indexed minter, uint256 price);
+    event VideoMinted(
+        uint256 indexed videoId,
+        address indexed minter,
+        uint256 price
+    );
 
-    // Social Featuresc
+    // Social Features
     event VideoLiked(uint256 indexed videoId, address indexed user);
     event VideoUnliked(uint256 indexed videoId, address indexed user);
-    event CommentAdded(uint256 indexed videoId, address indexed user, string commentText);
+    event CommentAdded(
+        uint256 indexed videoId,
+        address indexed user,
+        string commentText
+    );
     event CreatorFollowed(address indexed follower, address indexed creator);
-    event CreatorUnfollowed(address indexed unfollower, address indexed creator);
+    event CreatorUnfollowed(
+        address indexed unfollower,
+        address indexed creator
+    );
 
     // Creator Management
     event CreatorProfileUpdated(address indexed creator, string metadataUri);
@@ -84,22 +94,23 @@ interface ISessions {
 
     // Admin
     event RevenueSplitUpdated(
-        uint256 projectSharePercentage,
+        uint8 revenueType,
         uint256 creatorSharePercentage,
-        uint256 minterSharePercentage
-    );
-    event FannitRevenueSplitUpdated(
-        uint256 projectSharePercentage,
-        uint256 creatorSharePercentage,
+        uint256 platformSharePercentage,
         uint256 fanSharePercentage,
+        uint256 fan2SharePercentage,
         uint256 minterSharePercentage
     );
     event FeeUpdated(uint256 newFee);
     event ProjectWalletUpdated(address newWallet);
-    event OwnershipTransferred(address indexed prevOwner, address indexed newOwner);
+    event OwnershipTransferred(
+        address indexed prevOwner,
+        address indexed newOwner
+    );
     event GlobalMintLimitUpdated(uint256 newMintLimit);
     event MaxMintPriceUpdated(uint newMintPrice);
-    event FannitSettingsUpdated(uint256 fannitMintLimit);
+    event FannitMintLimitUpdated(uint256 fannitMintLimit);
+    event RefannitMintLimitUpdated(uint256 refannitMintLimit);
 
     // ============ FUNCTION GROUPS ============
 
@@ -109,51 +120,91 @@ interface ISessions {
         uint256 _mintLimit,
         uint256 _priceInWei
     ) external payable;
+
     function fannitVideo(uint256 _originalVideoId) external;
 
     function updateMintLimit(uint256 _videoId, uint256 _newMintLimit) external;
+
     function updateGlobalMintLimit(uint256 _newLimit) external;
 
     function updateMintPrice(uint256 _videoId, uint256 _newPrice) external;
+
     function updateMaximumMintPrice(uint256 _newMaxMintPrice) external;
 
     // ----- Minting -----
     function mintVideo(uint256 _videoId) external payable;
-    function mintfannit(uint256 _fannitVideoId) external payable;
+
+    function mintFannit(uint256 _fannitVideoId) external payable;
 
     // ----- Engagement -----
     function likeVideo(uint256 _videoId) external;
+
     function unlikeVideo(uint256 _videoId) external;
-    function commentOnVideo(uint256 _videoId, string memory _commentText) external;
+
+    function commentOnVideo(
+        uint256 _videoId,
+        string memory _commentText
+    ) external;
 
     // ----- Creator Features -----
     function updateProfile(string memory _metadataUri) external;
+
     function tipCreator(address _creator) external payable;
+
     function followCreator(address _creator) external;
+
     function unfollowCreator(address _creator) external;
 
     // ----- View Functions -----
     // Video Views
-    function hasLikedVideo(uint256 _videoId, address _user) external view returns (bool);
-    function getVideoComments(uint256 _videoId) external view returns (Comment[] memory);
+    function hasLikedVideo(
+        uint256 _videoId,
+        address _user
+    ) external view returns (bool);
+
+    function getVideoComments(
+        uint256 _videoId
+    ) external view returns (Comment[] memory);
+
     function getTotalComments(uint256 _videoId) external view returns (uint256);
-    function getVideoCommentsPaginated(uint256 _videoId, uint256 offset, uint256 limit) external view returns (Comment[] memory);
+
+    function getVideoCommentsPaginated(
+        uint256 _videoId,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (Comment[] memory);
 
     // Creator Views
-    function getCreatorProfile(address _creator) external view returns (Creator memory);
-    function isFollowing(address _follower, address _creator) external view returns (bool);
-    function getTotalFollowers(address _creator) external view returns (uint256);
+    function getCreatorProfile(
+        address _creator
+    ) external view returns (Creator memory);
+
+    function isFollowing(
+        address _follower,
+        address _creator
+    ) external view returns (bool);
+
+    function getTotalFollowers(
+        address _creator
+    ) external view returns (uint256);
 
     // Admin Views
     function getBalance() external view returns (uint256);
-    function getSharedRevenue(uint8 _type) external view returns (uint256[3] memory);
+
+    function getSharedRevenue(
+        uint8 _type
+    ) external view returns (RevenueShare memory);
 
     // Fannit Views
-    function getfannitsOfVideo(uint256 _videoId) external view returns (uint256[] memory);
+    function getFannitsOfVideo(
+        uint256 _videoId
+    ) external view returns (uint256[] memory);
+
     function getFannitMintLimit() external view returns (uint256);
 
     // ----- Admin Functions -----
     function setProjectWallet(address _projectWallet) external;
+
     function setRevenueSplit(
         uint8 _type,
         uint256 _creator,
@@ -162,9 +213,16 @@ interface ISessions {
         uint256 _fan2,
         uint256 _minter
     ) external;
+
     function setFannitMintLimit(uint256 _limit) external;
+
+    function setRefannitMintLimit(uint256 _limit) external;
+
     function withdraw() external;
+
     function setFee(uint _newFee) external;
+
     function transferOwnership(address _newOwner) external;
-    function acceptOwnerShip() external;
+
+    function acceptOwnership() external;
 }

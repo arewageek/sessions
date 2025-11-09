@@ -14,15 +14,16 @@ contract Sessions is ISessions, ReentrancyGuard {
     address public projectWallet;
 
     uint256 public videosCount = 0;
-    uint256 public mintLimit = 999999;
     uint256 public maxMintPrice = 1 ether; // 1000000000000000000
+
+    uint256 public mintLimit = 999999; // Global mint limit
+    uint256 public fannitMintLimit = 10; // Fannit mint limit
+    uint256 public refannitMintLimit = 10; // Refannit mint limit
 
     /// @notice Revenue sharing percentages
     RevenueShare videoShare = RevenueShare(60, 30, 0, 0, 10); // creator => 60, platform => 30, fan-1 => 0, fan-2 => 0, minter =>10
     RevenueShare fannitShare = RevenueShare(60, 20, 10, 0, 10); // creator => 60, platform =>20, fan-1=>10, fan-2=>0, minter => 10
     RevenueShare refannitShare = RevenueShare(50, 20, 10, 10, 10); // creator => 50, platform => 20, fan-1 => 10, fan-2 => 10, minter => 10
-
-    uint256 public fannitMintLimit = 10;
 
     uint256 public usdcFee;
     uint public constant USDC_SCALAR = 100; // 100 = 1 USDC, 10 = 0.1 USDC, 1 = 0.01 USDC
@@ -125,7 +126,7 @@ contract Sessions is ISessions, ReentrancyGuard {
         uint256 _originalVideoId
     ) external override nonReentrant {
         _validateFannitCreation(_originalVideoId, msg.sender);
-        _createFannit(_originFlVideoId, msg.sender);
+        _createFannit(_originalVideoId, msg.sender);
     }
 
     /**
@@ -194,11 +195,10 @@ contract Sessions is ISessions, ReentrancyGuard {
     function mintFannit(
         uint256 _videoId
     ) external payable override nonReentrant videoExists(_videoId) {
-        Video storage video = videos[_videoId];
-
         uint8 videoDepth = _getVideoDepth(_videoId);
 
         bool success = _handleMint(_videoId, videoDepth);
+        require(success, "Mint failed");
 
         hasfannited[msg.sender][_videoId] = true;
 
@@ -505,27 +505,22 @@ contract Sessions is ISessions, ReentrancyGuard {
      *
      * @return uint256[3] An array with the order [projectSharePercentage, creatorSharedPercentage, minterSharePercentage]
      */
-    function getSharedRevenue(uint8 _type)
-        external
-        view
-        override
-        returns (RevenueShare memory)
-    {
+    function getSharedRevenue(
+        uint8 _type
+    ) external view override returns (RevenueShare memory) {
         require(_type < 3, "Invalid type");
 
-        if(_type == 0){
+        if (_type == 0) {
             return videoShare;
-        }
-        else if(_type == 1){
+        } else if (_type == 1) {
             return fannitShare;
-        }
-        else {
+        } else {
             return refannitShare;
         }
     }
 
     // Fannit Views
-    function getfannitsOfVideo(
+    function getFannitsOfVideo(
         uint256 _videoId
     ) external view override returns (uint256[] memory) {
         return (fannitsOfVideo[_videoId]);
@@ -557,9 +552,12 @@ contract Sessions is ISessions, ReentrancyGuard {
      * @dev Can only be called by contract owner. Requires sum of percentages to equal 100.
      *      Updates storage and emits `RevenueSplitUpdated` event on success.
      *
-     * @param _projectShare Project's share (0-100, sum must equal 100 with others)
-     * @param _creatorShare Creator's share (0-100, sum must equal 100 with others)
-     * @param _minterShare Minter's share (0-100, sum must equal 100 with others)
+     * @param _type Type of revenue split (0: project, 1: creator, 2: minter)
+     * @param _creator Creator's share (0-100, sum must equal 100 with others)
+     * @param _platform Project's share (0-100, sum must equal 100 with others)
+     * @param _fan Fan's share (0-100, sum must equal 100 with others)
+     * @param _fan2 Fan2's share (0-100, sum must equal 100 with others)
+     * @param _minter Minter's share (0-100, sum must equal 100 with others)
      */
     function setRevenueSplit(
         uint8 _type,
@@ -573,30 +571,49 @@ contract Sessions is ISessions, ReentrancyGuard {
             _creator + _platform + _fan + _fan2 + _minter == 100,
             "Percentages must sum to 100"
         );
+        require(_type < 3, "Invalid type");
 
         if (_type == 0) {
-            videoShare = RevenueShare(_creator, _platform, _fan, _fan2, _minter);
-            emit RevenueSplitUpdated(_platform, _creator, _minter);
-        } else if (_type == 1) {
-            fannitShare = RevenueShare(_creator, _platform, _fan, _fan2, _minter);
-            emit FannitRevenueSplitUpdated(
-                _platform,
+            videoShare = RevenueShare(
                 _creator,
-                _fan,
-                _minter
-            );
-        } else if (_type == 2) {
-            refannitShare = RevenueShare(_creator, _platform, _fan, _fan2, _minter);
-            emit RefannitRevenueSplitUpdated(
                 _platform,
-                _creator,
                 _fan,
                 _fan2,
                 _minter
             );
-        } else {
-            revert("Invalid type");
+            emit RevenueSplitUpdated(
+                _type,
+                _creator,
+                _platform,
+                _fan,
+                _fan2,
+                _minter
+            );
+        } else if (_type == 1) {
+            fannitShare = RevenueShare(
+                _creator,
+                _platform,
+                _fan,
+                _fan2,
+                _minter
+            );
+        } else if (_type == 2) {
+            refannitShare = RevenueShare(
+                _creator,
+                _platform,
+                _fan,
+                _fan2,
+                _minter
+            );
         }
+        emit RevenueSplitUpdated(
+            _type,
+            _platform,
+            _creator,
+            _fan,
+            _fan2,
+            _minter
+        );
     }
 
     function setFannitMintLimit(uint256 _limit) external override onlyOwner {
@@ -629,7 +646,7 @@ contract Sessions is ISessions, ReentrancyGuard {
      *      Updates contract owner and emits `OwnershipTransferred` event.
      *      Clears the pending owner assignment as part of transfer.
      */
-    function acceptOwnership() external {
+    function acceptOwnership() external override {
         require(msg.sender == pendingOwner, "Not authorized");
 
         address prevOwner = owner;
@@ -646,7 +663,9 @@ contract Sessions is ISessions, ReentrancyGuard {
      *
      * @param _newMintLimit The new maximum number of tokens that can be minted (must be > 0)
      */
-    function updateGlobalMintLimit(uint256 _newMintLimit) external onlyOwner {
+    function updateGlobalMintLimit(
+        uint256 _newMintLimit
+    ) external override onlyOwner {
         require(
             _newMintLimit > 0 && _newMintLimit != mintLimit,
             "Invalid mint limit"
@@ -691,7 +710,8 @@ contract Sessions is ISessions, ReentrancyGuard {
      */
     function withdraw() external override onlyOwner {
         _safeTransfer(
-            (projectWallet, address(this).balance),
+            projectWallet,
+            address(this).balance,
             "withdrawal failed"
         );
     }
@@ -774,8 +794,10 @@ contract Sessions is ISessions, ReentrancyGuard {
             price: _priceInWei,
             likes: 0,
             isFannit: false,
-            originalVideoId: 0,
-            fan: address(0)
+            parentVideoId: newId,
+            originalVideoId: newId,
+            fan: address(0),
+            fan2: address(0)
         });
 
         bytes32 h = keccak256(abi.encodePacked(_ipfsHash));
@@ -806,7 +828,7 @@ contract Sessions is ISessions, ReentrancyGuard {
             "Already fannited this video"
         );
         require(
-            balances[_originalVideoId][_fan] > 0,
+            balances[_fan][_originalVideoId] > 0,
             "Must own original mint to fannit"
         );
     }
@@ -820,11 +842,11 @@ contract Sessions is ISessions, ReentrancyGuard {
         uint256 fannitId = videosCount + 1;
 
         videos[fannitId] = Video({
-            creator: original.creator,
-            ipfsHash: original.ipfsHash,
+            creator: video.creator,
+            ipfsHash: video.ipfsHash,
             totalMints: 0,
             mintLimit: fannitMintLimit,
-            price: original.price,
+            price: video.price,
             likes: 0,
             isFannit: true,
             parentVideoId: _parentVideoId,
@@ -835,10 +857,10 @@ contract Sessions is ISessions, ReentrancyGuard {
             fan2: video.isFannit ? video.fan : address(0)
         });
 
-        fannitsOfVideo[_originalVideoId].push(fannitId);
-        hasfannited[_fan][_originalVideoId] = true;
+        fannitsOfVideo[_parentVideoId].push(fannitId);
+        hasfannited[_fan][_parentVideoId] = true;
 
-        emit VideoFannited(_originalVideoId, fannitId, _fan);
+        emit VideoFannited(_parentVideoId, fannitId, _fan);
     }
 
     /**
@@ -850,7 +872,7 @@ contract Sessions is ISessions, ReentrancyGuard {
     function _getVideoDepth(uint256 _videoId) internal view returns (uint8) {
         Video memory video = videos[_videoId];
 
-        if (!video.isfannit) return 0;
+        if (!video.isFannit) return 0;
         if (video.parentVideoId == video.originalVideoId) return 1;
         return 2;
     }
@@ -883,9 +905,9 @@ contract Sessions is ISessions, ReentrancyGuard {
         RevenueShare memory _refannitShare = refannitShare;
 
         uint256 price;
-        address = creator;
+        address creator;
 
-        if (!_isfannit) {
+        if (_videoDepth == 0) {
             creatorShare = _videoShare.creator;
             minterDiscount = _videoShare.minter;
             creator = video.creator;
@@ -905,9 +927,14 @@ contract Sessions is ISessions, ReentrancyGuard {
             "Insufficient funds!"
         );
 
-        _payShare(video.creator, _totalRevenue, creatorShare);
-        fan2Share > 0 && _payShare(video.fan2, _totalRevenue, fan2Share);
-        fanShare > 0 && _payShare(video.fan, _totalRevenue, fanShare);
+        _payShare(video.creator, price, creatorShare);
+
+        if (fanShare > 0) {
+            _payShare(video.fan2, price, fan2Share);
+        }
+        if (fanShare > 0) {
+            _payShare(video.fan, price, fanShare);
+        }
 
         video.totalMints++;
         balances[msg.sender][_videoId]++;
